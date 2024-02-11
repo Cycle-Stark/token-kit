@@ -1,0 +1,253 @@
+[
+    {
+        "type": "impl",
+        "name": "TokenRegImpl",
+        "interface_name": "tokenreg::tokensreg::ITokenReg"
+    },
+    {
+        "type": "struct",
+        "name": "core::integer::u256",
+        "members": [
+            {
+                "name": "low",
+                "type": "core::integer::u128"
+            },
+            {
+                "name": "high",
+                "type": "core::integer::u128"
+            }
+        ]
+    },
+    {
+        "type": "enum",
+        "name": "core::bool",
+        "variants": [
+            {
+                "name": "False",
+                "type": "()"
+            },
+            {
+                "name": "True",
+                "type": "()"
+            }
+        ]
+    },
+    {
+        "type": "struct",
+        "name": "tokenreg::tokensreg::Token",
+        "members": [
+            {
+                "name": "address",
+                "type": "core::starknet::contract_address::ContractAddress"
+            },
+            {
+                "name": "icon",
+                "type": "core::felt252"
+            },
+            {
+                "name": "name",
+                "type": "core::felt252"
+            },
+            {
+                "name": "symbol",
+                "type": "core::felt252"
+            },
+            {
+                "name": "decimals",
+                "type": "core::integer::u8"
+            },
+            {
+                "name": "verified",
+                "type": "core::bool"
+            },
+            {
+                "name": "public",
+                "type": "core::bool"
+            },
+            {
+                "name": "common",
+                "type": "core::bool"
+            },
+            {
+                "name": "pair_id",
+                "type": "core::felt252"
+            }
+        ]
+    },
+    {
+        "type": "interface",
+        "name": "tokenreg::tokensreg::ITokenReg",
+        "items": [
+            {
+                "type": "function",
+                "name": "add_token",
+                "inputs": [
+                    {
+                        "name": "address",
+                        "type": "core::starknet::contract_address::ContractAddress"
+                    },
+                    {
+                        "name": "icon_link",
+                        "type": "core::felt252"
+                    },
+                    {
+                        "name": "pair_id",
+                        "type": "core::felt252"
+                    }
+                ],
+                "outputs": [],
+                "state_mutability": "external"
+            },
+            {
+                "type": "function",
+                "name": "edit_token",
+                "inputs": [
+                    {
+                        "name": "token_index",
+                        "type": "core::integer::u256"
+                    },
+                    {
+                        "name": "public",
+                        "type": "core::bool"
+                    },
+                    {
+                        "name": "verified",
+                        "type": "core::bool"
+                    },
+                    {
+                        "name": "common",
+                        "type": "core::bool"
+                    },
+                    {
+                        "name": "icon_link",
+                        "type": "core::felt252"
+                    },
+                    {
+                        "name": "pair_id",
+                        "type": "core::felt252"
+                    }
+                ],
+                "outputs": [],
+                "state_mutability": "external"
+            },
+            {
+                "type": "function",
+                "name": "add_admin",
+                "inputs": [
+                    {
+                        "name": "address",
+                        "type": "core::starknet::contract_address::ContractAddress"
+                    }
+                ],
+                "outputs": [],
+                "state_mutability": "external"
+            },
+            {
+                "type": "function",
+                "name": "get_tokens",
+                "inputs": [
+                    {
+                        "name": "page",
+                        "type": "core::integer::u256"
+                    }
+                ],
+                "outputs": [
+                    {
+                        "type": "core::array::Array::<tokenreg::tokensreg::Token>"
+                    }
+                ],
+                "state_mutability": "view"
+            },
+            {
+                "type": "function",
+                "name": "get_tokens_count",
+                "inputs": [],
+                "outputs": [
+                    {
+                        "type": "core::integer::u256"
+                    }
+                ],
+                "state_mutability": "view"
+            },
+            {
+                "type": "function",
+                "name": "get_has_upgraded",
+                "inputs": [],
+                "outputs": [
+                    {
+                        "type": "core::felt252"
+                    }
+                ],
+                "state_mutability": "view"
+            }
+        ]
+    },
+    {
+        "type": "impl",
+        "name": "UpgradeableContract",
+        "interface_name": "tokenreg::upgrade::IUpgradeableContract"
+    },
+    {
+        "type": "interface",
+        "name": "tokenreg::upgrade::IUpgradeableContract",
+        "items": [
+            {
+                "type": "function",
+                "name": "upgrade",
+                "inputs": [
+                    {
+                        "name": "impl_hash",
+                        "type": "core::starknet::class_hash::ClassHash"
+                    }
+                ],
+                "outputs": [],
+                "state_mutability": "external"
+            },
+            {
+                "type": "function",
+                "name": "version",
+                "inputs": [],
+                "outputs": [
+                    {
+                        "type": "core::integer::u8"
+                    }
+                ],
+                "state_mutability": "view"
+            }
+        ]
+    },
+    {
+        "type": "constructor",
+        "name": "constructor",
+        "inputs": [
+            {
+                "name": "guardian",
+                "type": "core::starknet::contract_address::ContractAddress"
+            }
+        ]
+    },
+    {
+        "type": "event",
+        "name": "tokenreg::tokensreg::TokenReg::Upgraded",
+        "kind": "struct",
+        "members": [
+            {
+                "name": "implementation",
+                "type": "core::starknet::class_hash::ClassHash",
+                "kind": "data"
+            }
+        ]
+    },
+    {
+        "type": "event",
+        "name": "tokenreg::tokensreg::TokenReg::Event",
+        "kind": "enum",
+        "variants": [
+            {
+                "name": "Upgraded",
+                "type": "tokenreg::tokensreg::TokenReg::Upgraded",
+                "kind": "nested"
+            }
+        ]
+    }
+]
