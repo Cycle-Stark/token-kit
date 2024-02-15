@@ -2,7 +2,7 @@
     {
         "type": "impl",
         "name": "TokenRegImpl",
-        "interface_name": "tokenreg::tokensreg::ITokenReg"
+        "interface_name": "tokenreg::interface::ITokenReg"
     },
     {
         "type": "struct",
@@ -34,7 +34,7 @@
     },
     {
         "type": "struct",
-        "name": "tokenreg::tokensreg::Token",
+        "name": "tokenreg::models::Token",
         "members": [
             {
                 "name": "address",
@@ -75,8 +75,22 @@
         ]
     },
     {
+        "type": "struct",
+        "name": "tokenreg::models::Admin",
+        "members": [
+            {
+                "name": "address",
+                "type": "core::starknet::contract_address::ContractAddress"
+            },
+            {
+                "name": "amount",
+                "type": "core::integer::u256"
+            }
+        ]
+    },
+    {
         "type": "interface",
-        "name": "tokenreg::tokensreg::ITokenReg",
+        "name": "tokenreg::interface::ITokenReg",
         "items": [
             {
                 "type": "function",
@@ -153,7 +167,18 @@
                 ],
                 "outputs": [
                     {
-                        "type": "core::array::Array::<tokenreg::tokensreg::Token>"
+                        "type": "core::array::Array::<tokenreg::models::Token>"
+                    }
+                ],
+                "state_mutability": "view"
+            },
+            {
+                "type": "function",
+                "name": "get_admins",
+                "inputs": [],
+                "outputs": [
+                    {
+                        "type": "core::array::Array::<tokenreg::models::Admin>"
                     }
                 ],
                 "state_mutability": "view"
@@ -176,6 +201,91 @@
                 "outputs": [
                     {
                         "type": "core::felt252"
+                    }
+                ],
+                "state_mutability": "view"
+            },
+            {
+                "type": "function",
+                "name": "get_tokens_version",
+                "inputs": [],
+                "outputs": [
+                    {
+                        "type": "core::integer::u64"
+                    }
+                ],
+                "state_mutability": "view"
+            },
+            {
+                "type": "function",
+                "name": "verify_token",
+                "inputs": [
+                    {
+                        "name": "token_index",
+                        "type": "core::integer::u256"
+                    }
+                ],
+                "outputs": [],
+                "state_mutability": "external"
+            },
+            {
+                "type": "function",
+                "name": "withdraw_token",
+                "inputs": [
+                    {
+                        "name": "receiver",
+                        "type": "core::starknet::contract_address::ContractAddress"
+                    },
+                    {
+                        "name": "amount",
+                        "type": "core::integer::u256"
+                    }
+                ],
+                "outputs": [],
+                "state_mutability": "external"
+            }
+        ]
+    },
+    {
+        "type": "impl",
+        "name": "InternalImpl",
+        "interface_name": "tokenreg::interface::IInternal"
+    },
+    {
+        "type": "interface",
+        "name": "tokenreg::interface::IInternal",
+        "items": [
+            {
+                "type": "function",
+                "name": "edit_fee_token",
+                "inputs": [
+                    {
+                        "name": "token_address",
+                        "type": "core::starknet::contract_address::ContractAddress"
+                    }
+                ],
+                "outputs": [],
+                "state_mutability": "external"
+            },
+            {
+                "type": "function",
+                "name": "edit_verification_fee",
+                "inputs": [
+                    {
+                        "name": "fee",
+                        "type": "core::integer::u256"
+                    }
+                ],
+                "outputs": [],
+                "state_mutability": "external"
+            },
+            {
+                "type": "function",
+                "name": "get_revenue",
+                "inputs": [],
+                "outputs": [
+                    {
+                        "type": "core::integer::u256"
                     }
                 ],
                 "state_mutability": "view"

@@ -64,7 +64,7 @@ var token_kit_abi_default = [
   {
     type: "impl",
     name: "TokenRegImpl",
-    interface_name: "tokenreg::tokensreg::ITokenReg"
+    interface_name: "tokenreg::interface::ITokenReg"
   },
   {
     type: "struct",
@@ -96,7 +96,7 @@ var token_kit_abi_default = [
   },
   {
     type: "struct",
-    name: "tokenreg::tokensreg::Token",
+    name: "tokenreg::models::Token",
     members: [
       {
         name: "address",
@@ -137,8 +137,22 @@ var token_kit_abi_default = [
     ]
   },
   {
+    type: "struct",
+    name: "tokenreg::models::Admin",
+    members: [
+      {
+        name: "address",
+        type: "core::starknet::contract_address::ContractAddress"
+      },
+      {
+        name: "amount",
+        type: "core::integer::u256"
+      }
+    ]
+  },
+  {
     type: "interface",
-    name: "tokenreg::tokensreg::ITokenReg",
+    name: "tokenreg::interface::ITokenReg",
     items: [
       {
         type: "function",
@@ -215,7 +229,18 @@ var token_kit_abi_default = [
         ],
         outputs: [
           {
-            type: "core::array::Array::<tokenreg::tokensreg::Token>"
+            type: "core::array::Array::<tokenreg::models::Token>"
+          }
+        ],
+        state_mutability: "view"
+      },
+      {
+        type: "function",
+        name: "get_admins",
+        inputs: [],
+        outputs: [
+          {
+            type: "core::array::Array::<tokenreg::models::Admin>"
           }
         ],
         state_mutability: "view"
@@ -238,6 +263,91 @@ var token_kit_abi_default = [
         outputs: [
           {
             type: "core::felt252"
+          }
+        ],
+        state_mutability: "view"
+      },
+      {
+        type: "function",
+        name: "get_tokens_version",
+        inputs: [],
+        outputs: [
+          {
+            type: "core::integer::u64"
+          }
+        ],
+        state_mutability: "view"
+      },
+      {
+        type: "function",
+        name: "verify_token",
+        inputs: [
+          {
+            name: "token_index",
+            type: "core::integer::u256"
+          }
+        ],
+        outputs: [],
+        state_mutability: "external"
+      },
+      {
+        type: "function",
+        name: "withdraw_token",
+        inputs: [
+          {
+            name: "receiver",
+            type: "core::starknet::contract_address::ContractAddress"
+          },
+          {
+            name: "amount",
+            type: "core::integer::u256"
+          }
+        ],
+        outputs: [],
+        state_mutability: "external"
+      }
+    ]
+  },
+  {
+    type: "impl",
+    name: "InternalImpl",
+    interface_name: "tokenreg::interface::IInternal"
+  },
+  {
+    type: "interface",
+    name: "tokenreg::interface::IInternal",
+    items: [
+      {
+        type: "function",
+        name: "edit_fee_token",
+        inputs: [
+          {
+            name: "token_address",
+            type: "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        outputs: [],
+        state_mutability: "external"
+      },
+      {
+        type: "function",
+        name: "edit_verification_fee",
+        inputs: [
+          {
+            name: "fee",
+            type: "core::integer::u256"
+          }
+        ],
+        outputs: [],
+        state_mutability: "external"
+      },
+      {
+        type: "function",
+        name: "get_revenue",
+        inputs: [],
+        outputs: [
+          {
+            type: "core::integer::u256"
           }
         ],
         state_mutability: "view"
@@ -316,8 +426,1113 @@ var token_kit_abi_default = [
 
 // src/configs/utils.ts
 var import_starknet = require("starknet");
+
+// src/assets/pragmaabi.json
+var pragmaabi_default = [
+  {
+    type: "impl",
+    name: "IOracleImpl",
+    interface_name: "pragma::oracle::oracle::IOracleABI"
+  },
+  {
+    type: "enum",
+    name: "pragma::entry::structs::DataType",
+    variants: [
+      {
+        name: "SpotEntry",
+        type: "core::felt252"
+      },
+      {
+        name: "FutureEntry",
+        type: "(core::felt252, core::integer::u64)"
+      },
+      {
+        name: "GenericEntry",
+        type: "core::felt252"
+      }
+    ]
+  },
+  {
+    type: "enum",
+    name: "core::option::Option::<core::integer::u64>",
+    variants: [
+      {
+        name: "Some",
+        type: "core::integer::u64"
+      },
+      {
+        name: "None",
+        type: "()"
+      }
+    ]
+  },
+  {
+    type: "struct",
+    name: "pragma::entry::structs::PragmaPricesResponse",
+    members: [
+      {
+        name: "price",
+        type: "core::integer::u128"
+      },
+      {
+        name: "decimals",
+        type: "core::integer::u32"
+      },
+      {
+        name: "last_updated_timestamp",
+        type: "core::integer::u64"
+      },
+      {
+        name: "num_sources_aggregated",
+        type: "core::integer::u32"
+      },
+      {
+        name: "expiration_timestamp",
+        type: "core::option::Option::<core::integer::u64>"
+      }
+    ]
+  },
+  {
+    type: "struct",
+    name: "core::array::Span::<core::felt252>",
+    members: [
+      {
+        name: "snapshot",
+        type: "@core::array::Array::<core::felt252>"
+      }
+    ]
+  },
+  {
+    type: "enum",
+    name: "pragma::entry::structs::AggregationMode",
+    variants: [
+      {
+        name: "Median",
+        type: "()"
+      },
+      {
+        name: "Mean",
+        type: "()"
+      },
+      {
+        name: "Error",
+        type: "()"
+      }
+    ]
+  },
+  {
+    type: "struct",
+    name: "core::array::Span::<pragma::entry::structs::DataType>",
+    members: [
+      {
+        name: "snapshot",
+        type: "@core::array::Array::<pragma::entry::structs::DataType>"
+      }
+    ]
+  },
+  {
+    type: "struct",
+    name: "core::array::Span::<pragma::entry::structs::PragmaPricesResponse>",
+    members: [
+      {
+        name: "snapshot",
+        type: "@core::array::Array::<pragma::entry::structs::PragmaPricesResponse>"
+      }
+    ]
+  },
+  {
+    type: "struct",
+    name: "pragma::entry::structs::BaseEntry",
+    members: [
+      {
+        name: "timestamp",
+        type: "core::integer::u64"
+      },
+      {
+        name: "source",
+        type: "core::felt252"
+      },
+      {
+        name: "publisher",
+        type: "core::felt252"
+      }
+    ]
+  },
+  {
+    type: "struct",
+    name: "pragma::entry::structs::SpotEntry",
+    members: [
+      {
+        name: "base",
+        type: "pragma::entry::structs::BaseEntry"
+      },
+      {
+        name: "price",
+        type: "core::integer::u128"
+      },
+      {
+        name: "pair_id",
+        type: "core::felt252"
+      },
+      {
+        name: "volume",
+        type: "core::integer::u128"
+      }
+    ]
+  },
+  {
+    type: "struct",
+    name: "pragma::entry::structs::FutureEntry",
+    members: [
+      {
+        name: "base",
+        type: "pragma::entry::structs::BaseEntry"
+      },
+      {
+        name: "price",
+        type: "core::integer::u128"
+      },
+      {
+        name: "pair_id",
+        type: "core::felt252"
+      },
+      {
+        name: "volume",
+        type: "core::integer::u128"
+      },
+      {
+        name: "expiration_timestamp",
+        type: "core::integer::u64"
+      }
+    ]
+  },
+  {
+    type: "struct",
+    name: "pragma::entry::structs::GenericEntry",
+    members: [
+      {
+        name: "base",
+        type: "pragma::entry::structs::BaseEntry"
+      },
+      {
+        name: "key",
+        type: "core::felt252"
+      },
+      {
+        name: "value",
+        type: "core::integer::u128"
+      }
+    ]
+  },
+  {
+    type: "enum",
+    name: "pragma::entry::structs::PossibleEntries",
+    variants: [
+      {
+        name: "Spot",
+        type: "pragma::entry::structs::SpotEntry"
+      },
+      {
+        name: "Future",
+        type: "pragma::entry::structs::FutureEntry"
+      },
+      {
+        name: "Generic",
+        type: "pragma::entry::structs::GenericEntry"
+      }
+    ]
+  },
+  {
+    type: "struct",
+    name: "core::array::Span::<pragma::entry::structs::PossibleEntries>",
+    members: [
+      {
+        name: "snapshot",
+        type: "@core::array::Array::<pragma::entry::structs::PossibleEntries>"
+      }
+    ]
+  },
+  {
+    type: "struct",
+    name: "pragma::entry::structs::Checkpoint",
+    members: [
+      {
+        name: "timestamp",
+        type: "core::integer::u64"
+      },
+      {
+        name: "value",
+        type: "core::integer::u128"
+      },
+      {
+        name: "aggregation_mode",
+        type: "pragma::entry::structs::AggregationMode"
+      },
+      {
+        name: "num_sources_aggregated",
+        type: "core::integer::u32"
+      }
+    ]
+  },
+  {
+    type: "enum",
+    name: "pragma::entry::structs::SimpleDataType",
+    variants: [
+      {
+        name: "SpotEntry",
+        type: "()"
+      },
+      {
+        name: "FutureEntry",
+        type: "()"
+      }
+    ]
+  },
+  {
+    type: "enum",
+    name: "core::bool",
+    variants: [
+      {
+        name: "False",
+        type: "()"
+      },
+      {
+        name: "True",
+        type: "()"
+      }
+    ]
+  },
+  {
+    type: "struct",
+    name: "pragma::entry::structs::Currency",
+    members: [
+      {
+        name: "id",
+        type: "core::felt252"
+      },
+      {
+        name: "decimals",
+        type: "core::integer::u32"
+      },
+      {
+        name: "is_abstract_currency",
+        type: "core::bool"
+      },
+      {
+        name: "starknet_address",
+        type: "core::starknet::contract_address::ContractAddress"
+      },
+      {
+        name: "ethereum_address",
+        type: "core::starknet::contract_address::ContractAddress"
+      }
+    ]
+  },
+  {
+    type: "struct",
+    name: "pragma::entry::structs::Pair",
+    members: [
+      {
+        name: "id",
+        type: "core::felt252"
+      },
+      {
+        name: "quote_currency_id",
+        type: "core::felt252"
+      },
+      {
+        name: "base_currency_id",
+        type: "core::felt252"
+      }
+    ]
+  },
+  {
+    type: "interface",
+    name: "pragma::oracle::oracle::IOracleABI",
+    items: [
+      {
+        type: "function",
+        name: "get_decimals",
+        inputs: [
+          {
+            name: "data_type",
+            type: "pragma::entry::structs::DataType"
+          }
+        ],
+        outputs: [
+          {
+            type: "core::integer::u32"
+          }
+        ],
+        state_mutability: "view"
+      },
+      {
+        type: "function",
+        name: "get_data_median",
+        inputs: [
+          {
+            name: "data_type",
+            type: "pragma::entry::structs::DataType"
+          }
+        ],
+        outputs: [
+          {
+            type: "pragma::entry::structs::PragmaPricesResponse"
+          }
+        ],
+        state_mutability: "view"
+      },
+      {
+        type: "function",
+        name: "get_data_median_for_sources",
+        inputs: [
+          {
+            name: "data_type",
+            type: "pragma::entry::structs::DataType"
+          },
+          {
+            name: "sources",
+            type: "core::array::Span::<core::felt252>"
+          }
+        ],
+        outputs: [
+          {
+            type: "pragma::entry::structs::PragmaPricesResponse"
+          }
+        ],
+        state_mutability: "view"
+      },
+      {
+        type: "function",
+        name: "get_data",
+        inputs: [
+          {
+            name: "data_type",
+            type: "pragma::entry::structs::DataType"
+          },
+          {
+            name: "aggregation_mode",
+            type: "pragma::entry::structs::AggregationMode"
+          }
+        ],
+        outputs: [
+          {
+            type: "pragma::entry::structs::PragmaPricesResponse"
+          }
+        ],
+        state_mutability: "view"
+      },
+      {
+        type: "function",
+        name: "get_data_median_multi",
+        inputs: [
+          {
+            name: "data_types",
+            type: "core::array::Span::<pragma::entry::structs::DataType>"
+          },
+          {
+            name: "sources",
+            type: "core::array::Span::<core::felt252>"
+          }
+        ],
+        outputs: [
+          {
+            type: "core::array::Span::<pragma::entry::structs::PragmaPricesResponse>"
+          }
+        ],
+        state_mutability: "view"
+      },
+      {
+        type: "function",
+        name: "get_data_entry",
+        inputs: [
+          {
+            name: "data_type",
+            type: "pragma::entry::structs::DataType"
+          },
+          {
+            name: "source",
+            type: "core::felt252"
+          },
+          {
+            name: "publisher",
+            type: "core::felt252"
+          }
+        ],
+        outputs: [
+          {
+            type: "pragma::entry::structs::PossibleEntries"
+          }
+        ],
+        state_mutability: "view"
+      },
+      {
+        type: "function",
+        name: "get_data_entry_for_publishers",
+        inputs: [
+          {
+            name: "data_type",
+            type: "pragma::entry::structs::DataType"
+          },
+          {
+            name: "source",
+            type: "core::felt252"
+          }
+        ],
+        outputs: [
+          {
+            type: "pragma::entry::structs::PossibleEntries"
+          }
+        ],
+        state_mutability: "view"
+      },
+      {
+        type: "function",
+        name: "get_data_for_sources",
+        inputs: [
+          {
+            name: "data_type",
+            type: "pragma::entry::structs::DataType"
+          },
+          {
+            name: "aggregation_mode",
+            type: "pragma::entry::structs::AggregationMode"
+          },
+          {
+            name: "sources",
+            type: "core::array::Span::<core::felt252>"
+          }
+        ],
+        outputs: [
+          {
+            type: "pragma::entry::structs::PragmaPricesResponse"
+          }
+        ],
+        state_mutability: "view"
+      },
+      {
+        type: "function",
+        name: "get_data_entries",
+        inputs: [
+          {
+            name: "data_type",
+            type: "pragma::entry::structs::DataType"
+          }
+        ],
+        outputs: [
+          {
+            type: "core::array::Span::<pragma::entry::structs::PossibleEntries>"
+          }
+        ],
+        state_mutability: "view"
+      },
+      {
+        type: "function",
+        name: "get_data_entries_for_sources",
+        inputs: [
+          {
+            name: "data_type",
+            type: "pragma::entry::structs::DataType"
+          },
+          {
+            name: "sources",
+            type: "core::array::Span::<core::felt252>"
+          }
+        ],
+        outputs: [
+          {
+            type: "(core::array::Span::<pragma::entry::structs::PossibleEntries>, core::integer::u64)"
+          }
+        ],
+        state_mutability: "view"
+      },
+      {
+        type: "function",
+        name: "get_last_checkpoint_before",
+        inputs: [
+          {
+            name: "data_type",
+            type: "pragma::entry::structs::DataType"
+          },
+          {
+            name: "timestamp",
+            type: "core::integer::u64"
+          },
+          {
+            name: "aggregation_mode",
+            type: "pragma::entry::structs::AggregationMode"
+          }
+        ],
+        outputs: [
+          {
+            type: "(pragma::entry::structs::Checkpoint, core::integer::u64)"
+          }
+        ],
+        state_mutability: "view"
+      },
+      {
+        type: "function",
+        name: "get_data_with_USD_hop",
+        inputs: [
+          {
+            name: "base_currency_id",
+            type: "core::felt252"
+          },
+          {
+            name: "quote_currency_id",
+            type: "core::felt252"
+          },
+          {
+            name: "aggregation_mode",
+            type: "pragma::entry::structs::AggregationMode"
+          },
+          {
+            name: "typeof",
+            type: "pragma::entry::structs::SimpleDataType"
+          },
+          {
+            name: "expiration_timestamp",
+            type: "core::option::Option::<core::integer::u64>"
+          }
+        ],
+        outputs: [
+          {
+            type: "pragma::entry::structs::PragmaPricesResponse"
+          }
+        ],
+        state_mutability: "view"
+      },
+      {
+        type: "function",
+        name: "get_publisher_registry_address",
+        inputs: [],
+        outputs: [
+          {
+            type: "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        state_mutability: "view"
+      },
+      {
+        type: "function",
+        name: "get_latest_checkpoint_index",
+        inputs: [
+          {
+            name: "data_type",
+            type: "pragma::entry::structs::DataType"
+          },
+          {
+            name: "aggregation_mode",
+            type: "pragma::entry::structs::AggregationMode"
+          }
+        ],
+        outputs: [
+          {
+            type: "(core::integer::u64, core::bool)"
+          }
+        ],
+        state_mutability: "view"
+      },
+      {
+        type: "function",
+        name: "get_latest_checkpoint",
+        inputs: [
+          {
+            name: "data_type",
+            type: "pragma::entry::structs::DataType"
+          },
+          {
+            name: "aggregation_mode",
+            type: "pragma::entry::structs::AggregationMode"
+          }
+        ],
+        outputs: [
+          {
+            type: "pragma::entry::structs::Checkpoint"
+          }
+        ],
+        state_mutability: "view"
+      },
+      {
+        type: "function",
+        name: "get_checkpoint",
+        inputs: [
+          {
+            name: "data_type",
+            type: "pragma::entry::structs::DataType"
+          },
+          {
+            name: "checkpoint_index",
+            type: "core::integer::u64"
+          },
+          {
+            name: "aggregation_mode",
+            type: "pragma::entry::structs::AggregationMode"
+          }
+        ],
+        outputs: [
+          {
+            type: "pragma::entry::structs::Checkpoint"
+          }
+        ],
+        state_mutability: "view"
+      },
+      {
+        type: "function",
+        name: "get_sources_threshold",
+        inputs: [],
+        outputs: [
+          {
+            type: "core::integer::u32"
+          }
+        ],
+        state_mutability: "view"
+      },
+      {
+        type: "function",
+        name: "get_admin_address",
+        inputs: [],
+        outputs: [
+          {
+            type: "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        state_mutability: "view"
+      },
+      {
+        type: "function",
+        name: "get_all_publishers",
+        inputs: [
+          {
+            name: "data_type",
+            type: "pragma::entry::structs::DataType"
+          }
+        ],
+        outputs: [
+          {
+            type: "core::array::Span::<core::felt252>"
+          }
+        ],
+        state_mutability: "view"
+      },
+      {
+        type: "function",
+        name: "get_all_sources",
+        inputs: [
+          {
+            name: "data_type",
+            type: "pragma::entry::structs::DataType"
+          }
+        ],
+        outputs: [
+          {
+            type: "core::array::Span::<core::felt252>"
+          }
+        ],
+        state_mutability: "view"
+      },
+      {
+        type: "function",
+        name: "publish_data",
+        inputs: [
+          {
+            name: "new_entry",
+            type: "pragma::entry::structs::PossibleEntries"
+          }
+        ],
+        outputs: [],
+        state_mutability: "external"
+      },
+      {
+        type: "function",
+        name: "publish_data_entries",
+        inputs: [
+          {
+            name: "new_entries",
+            type: "core::array::Span::<pragma::entry::structs::PossibleEntries>"
+          }
+        ],
+        outputs: [],
+        state_mutability: "external"
+      },
+      {
+        type: "function",
+        name: "set_admin_address",
+        inputs: [
+          {
+            name: "new_admin_address",
+            type: "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        outputs: [],
+        state_mutability: "external"
+      },
+      {
+        type: "function",
+        name: "update_publisher_registry_address",
+        inputs: [
+          {
+            name: "new_publisher_registry_address",
+            type: "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        outputs: [],
+        state_mutability: "external"
+      },
+      {
+        type: "function",
+        name: "add_currency",
+        inputs: [
+          {
+            name: "new_currency",
+            type: "pragma::entry::structs::Currency"
+          }
+        ],
+        outputs: [],
+        state_mutability: "external"
+      },
+      {
+        type: "function",
+        name: "update_currency",
+        inputs: [
+          {
+            name: "currency_id",
+            type: "core::felt252"
+          },
+          {
+            name: "currency",
+            type: "pragma::entry::structs::Currency"
+          }
+        ],
+        outputs: [],
+        state_mutability: "external"
+      },
+      {
+        type: "function",
+        name: "add_pair",
+        inputs: [
+          {
+            name: "new_pair",
+            type: "pragma::entry::structs::Pair"
+          }
+        ],
+        outputs: [],
+        state_mutability: "external"
+      },
+      {
+        type: "function",
+        name: "set_checkpoint",
+        inputs: [
+          {
+            name: "data_type",
+            type: "pragma::entry::structs::DataType"
+          },
+          {
+            name: "aggregation_mode",
+            type: "pragma::entry::structs::AggregationMode"
+          }
+        ],
+        outputs: [],
+        state_mutability: "external"
+      },
+      {
+        type: "function",
+        name: "set_checkpoints",
+        inputs: [
+          {
+            name: "data_types",
+            type: "core::array::Span::<pragma::entry::structs::DataType>"
+          },
+          {
+            name: "aggregation_mode",
+            type: "pragma::entry::structs::AggregationMode"
+          }
+        ],
+        outputs: [],
+        state_mutability: "external"
+      },
+      {
+        type: "function",
+        name: "remove_source",
+        inputs: [
+          {
+            name: "source",
+            type: "core::felt252"
+          },
+          {
+            name: "data_type",
+            type: "pragma::entry::structs::DataType"
+          }
+        ],
+        outputs: [
+          {
+            type: "core::bool"
+          }
+        ],
+        state_mutability: "external"
+      },
+      {
+        type: "function",
+        name: "set_sources_threshold",
+        inputs: [
+          {
+            name: "threshold",
+            type: "core::integer::u32"
+          }
+        ],
+        outputs: [],
+        state_mutability: "external"
+      },
+      {
+        type: "function",
+        name: "upgrade",
+        inputs: [
+          {
+            name: "impl_hash",
+            type: "core::starknet::class_hash::ClassHash"
+          }
+        ],
+        outputs: [],
+        state_mutability: "external"
+      }
+    ]
+  },
+  {
+    type: "struct",
+    name: "core::array::Span::<pragma::entry::structs::Currency>",
+    members: [
+      {
+        name: "snapshot",
+        type: "@core::array::Array::<pragma::entry::structs::Currency>"
+      }
+    ]
+  },
+  {
+    type: "struct",
+    name: "core::array::Span::<pragma::entry::structs::Pair>",
+    members: [
+      {
+        name: "snapshot",
+        type: "@core::array::Array::<pragma::entry::structs::Pair>"
+      }
+    ]
+  },
+  {
+    type: "constructor",
+    name: "constructor",
+    inputs: [
+      {
+        name: "admin_address",
+        type: "core::starknet::contract_address::ContractAddress"
+      },
+      {
+        name: "publisher_registry_address",
+        type: "core::starknet::contract_address::ContractAddress"
+      },
+      {
+        name: "currencies",
+        type: "core::array::Span::<pragma::entry::structs::Currency>"
+      },
+      {
+        name: "pairs",
+        type: "core::array::Span::<pragma::entry::structs::Pair>"
+      }
+    ]
+  },
+  {
+    type: "event",
+    name: "pragma::oracle::oracle::Oracle::UpdatedPublisherRegistryAddress",
+    kind: "struct",
+    members: [
+      {
+        name: "old_publisher_registry_address",
+        type: "core::starknet::contract_address::ContractAddress",
+        kind: "data"
+      },
+      {
+        name: "new_publisher_registry_address",
+        type: "core::starknet::contract_address::ContractAddress",
+        kind: "data"
+      }
+    ]
+  },
+  {
+    type: "event",
+    name: "pragma::oracle::oracle::Oracle::SubmittedSpotEntry",
+    kind: "struct",
+    members: [
+      {
+        name: "spot_entry",
+        type: "pragma::entry::structs::SpotEntry",
+        kind: "data"
+      }
+    ]
+  },
+  {
+    type: "event",
+    name: "pragma::oracle::oracle::Oracle::SubmittedFutureEntry",
+    kind: "struct",
+    members: [
+      {
+        name: "future_entry",
+        type: "pragma::entry::structs::FutureEntry",
+        kind: "data"
+      }
+    ]
+  },
+  {
+    type: "event",
+    name: "pragma::oracle::oracle::Oracle::SubmittedGenericEntry",
+    kind: "struct",
+    members: [
+      {
+        name: "generic_entry",
+        type: "pragma::entry::structs::GenericEntry",
+        kind: "data"
+      }
+    ]
+  },
+  {
+    type: "event",
+    name: "pragma::oracle::oracle::Oracle::SubmittedCurrency",
+    kind: "struct",
+    members: [
+      {
+        name: "currency",
+        type: "pragma::entry::structs::Currency",
+        kind: "data"
+      }
+    ]
+  },
+  {
+    type: "event",
+    name: "pragma::oracle::oracle::Oracle::UpdatedCurrency",
+    kind: "struct",
+    members: [
+      {
+        name: "currency",
+        type: "pragma::entry::structs::Currency",
+        kind: "data"
+      }
+    ]
+  },
+  {
+    type: "event",
+    name: "pragma::oracle::oracle::Oracle::SubmittedPair",
+    kind: "struct",
+    members: [
+      {
+        name: "pair",
+        type: "pragma::entry::structs::Pair",
+        kind: "data"
+      }
+    ]
+  },
+  {
+    type: "event",
+    name: "pragma::oracle::oracle::Oracle::CheckpointSpotEntry",
+    kind: "struct",
+    members: [
+      {
+        name: "pair_id",
+        type: "core::felt252",
+        kind: "data"
+      }
+    ]
+  },
+  {
+    type: "event",
+    name: "pragma::oracle::oracle::Oracle::CheckpointFutureEntry",
+    kind: "struct",
+    members: [
+      {
+        name: "pair_id",
+        type: "core::felt252",
+        kind: "data"
+      },
+      {
+        name: "expiration_timestamp",
+        type: "core::integer::u64",
+        kind: "data"
+      }
+    ]
+  },
+  {
+    type: "event",
+    name: "pragma::oracle::oracle::Oracle::ChangedAdmin",
+    kind: "struct",
+    members: [
+      {
+        name: "new_admin",
+        type: "core::starknet::contract_address::ContractAddress",
+        kind: "data"
+      }
+    ]
+  },
+  {
+    type: "event",
+    name: "pragma::oracle::oracle::Oracle::Event",
+    kind: "enum",
+    variants: [
+      {
+        name: "UpdatedPublisherRegistryAddress",
+        type: "pragma::oracle::oracle::Oracle::UpdatedPublisherRegistryAddress",
+        kind: "nested"
+      },
+      {
+        name: "SubmittedSpotEntry",
+        type: "pragma::oracle::oracle::Oracle::SubmittedSpotEntry",
+        kind: "nested"
+      },
+      {
+        name: "SubmittedFutureEntry",
+        type: "pragma::oracle::oracle::Oracle::SubmittedFutureEntry",
+        kind: "nested"
+      },
+      {
+        name: "SubmittedGenericEntry",
+        type: "pragma::oracle::oracle::Oracle::SubmittedGenericEntry",
+        kind: "nested"
+      },
+      {
+        name: "SubmittedCurrency",
+        type: "pragma::oracle::oracle::Oracle::SubmittedCurrency",
+        kind: "nested"
+      },
+      {
+        name: "UpdatedCurrency",
+        type: "pragma::oracle::oracle::Oracle::UpdatedCurrency",
+        kind: "nested"
+      },
+      {
+        name: "SubmittedPair",
+        type: "pragma::oracle::oracle::Oracle::SubmittedPair",
+        kind: "nested"
+      },
+      {
+        name: "CheckpointSpotEntry",
+        type: "pragma::oracle::oracle::Oracle::CheckpointSpotEntry",
+        kind: "nested"
+      },
+      {
+        name: "CheckpointFutureEntry",
+        type: "pragma::oracle::oracle::Oracle::CheckpointFutureEntry",
+        kind: "nested"
+      },
+      {
+        name: "ChangedAdmin",
+        type: "pragma::oracle::oracle::Oracle::ChangedAdmin",
+        kind: "nested"
+      }
+    ]
+  }
+];
+
+// src/configs/utils.ts
 var TOKEN_KIT_ABI = token_kit_abi_default;
-var TOKEN_KIT_CONTRACT_ADDRESS = "0xa6715bb9e01d8e096f962569b9961e075c274e5ea65516de6c924d943681f9";
+var TOKEN_KIT_CONTRACT_ADDRESS = "0x72fccd711f5a27e50b48d56514717847b45ab3620a517cd9cad61ded3b5895d";
+var PRAGMA_ABI = pragmaabi_default;
+var PRAGMA_CONTRACT_ADDRESS = "0x06df335982dddce41008e4c03f2546fa27276567b5274c7d0c1262f3c2b5d167";
 function formatNumberInternational(number) {
   const DECIMALS = 4;
   if (typeof Intl.NumberFormat === "function") {
@@ -368,6 +1583,23 @@ function limitChars(str, count, show_dots) {
   }
   return str;
 }
+function timeStampToDate(timestamp) {
+  if (!timestamp)
+    return null;
+  const timestampInMilliseconds = timestamp * 1e3;
+  const date = new Date(timestampInMilliseconds);
+  return date;
+}
+function getRealPrice(val) {
+  let decimals = (0, import_bignumber.BigNumber)(val.decimals).toNumber();
+  let ts = (0, import_bignumber.BigNumber)(val.last_updated_timestamp).toNumber();
+  let real_price = {
+    price: (0, import_bignumber.BigNumber)(val.price).dividedBy(10 ** decimals).toNumber(),
+    last_updated_timestamp: timeStampToDate(ts),
+    num_sources_aggregated: (0, import_bignumber.BigNumber)(val.num_sources_aggregated).toNumber()
+  };
+  return real_price;
+}
 
 // src/providers/tokenkitprovider.tsx
 var import_modals = require("@mantine/modals");
@@ -378,6 +1610,7 @@ var import_bignumber2 = __toESM(require("bignumber.js"));
 var import_dexie = __toESM(require("dexie"));
 var TokenKitDBDexie = class extends import_dexie.default {
   tokens;
+  info;
   constructor() {
     super("TokenKitDB");
     this.version(1).stores({
@@ -385,6 +1618,9 @@ var TokenKitDBDexie = class extends import_dexie.default {
     });
     this.version(2).stores({
       tokens: "++id, name, symbol, decimals, address, verified, public, common, pair_id, [verified+common], [verified+public], [verified+common+public]"
+    });
+    this.version(3).stores({
+      info: "++id, name, tokens_count, tokens_version"
     });
   }
 };
@@ -422,17 +1658,20 @@ var TokenKitProvider = ({ children }) => {
   const [selectedToken, setselectedToken] = (0, import_react2.useState)();
   const [loading, setLoading] = (0, import_react2.useState)(false);
   const connectWallet = async () => {
-    let provider = new import_starknet2.RpcProvider({ nodeUrl: "https://starknet-goerli.infura.io/v3/958e1b411a40480eacb8c0f5d640a8ec" });
-    const connection2 = await (0, import_starknetkit.connect)({
-      webWalletUrl: "https://web.argent.xyz",
-      dappName: "Token Kit",
-      modalMode: "alwaysAsk",
-      provider
-    });
-    if (connection2 && connection2?.wallet) {
-      setConnection(connection2);
-      setAccount(connection2?.wallet?.account);
-      setAddress(connection2?.wallet?.selectedAddress);
+    try {
+      let provider = new import_starknet2.RpcProvider({ nodeUrl: "https://starknet-goerli.infura.io/v3/958e1b411a40480eacb8c0f5d640a8ec" });
+      const connection2 = await (0, import_starknetkit.connect)({
+        webWalletUrl: "https://web.argent.xyz",
+        dappName: "Token Kit",
+        modalMode: "alwaysAsk",
+        provider
+      });
+      if (connection2 && connection2?.wallet) {
+        setConnection(connection2);
+        setAccount(connection2?.wallet?.account);
+        setAddress(connection2?.wallet?.selectedAddress);
+      }
+    } catch (err) {
     }
   };
   const disconnectWallet = async () => {
@@ -454,11 +1693,17 @@ var TokenKitProvider = ({ children }) => {
     onConfirm: () => disconnectWallet()
   });
   const makeContractConnection = () => {
-    let contract2 = new import_starknet2.Contract(TOKEN_KIT_ABI, TOKEN_KIT_CONTRACT_ADDRESS);
-    if (account) {
-      contract2 = new import_starknet2.Contract(TOKEN_KIT_ABI, TOKEN_KIT_CONTRACT_ADDRESS, account);
+    try {
+      let provider = new import_starknet2.RpcProvider({ nodeUrl: "https://starknet-goerli.infura.io/v3/958e1b411a40480eacb8c0f5d640a8ec" });
+      let pragma_contract2 = new import_starknet2.Contract(PRAGMA_ABI, PRAGMA_CONTRACT_ADDRESS, provider);
+      setPragmaContract(pragma_contract2);
+      let contract2 = new import_starknet2.Contract(TOKEN_KIT_ABI, TOKEN_KIT_CONTRACT_ADDRESS, provider);
+      if (account) {
+        contract2 = new import_starknet2.Contract(TOKEN_KIT_ABI, TOKEN_KIT_CONTRACT_ADDRESS, account);
+      }
+      setContract(contract2);
+    } catch (error) {
     }
-    setContract(contract2);
   };
   const handleConnetDisconnectWalletBtnClick = () => {
     if (!account) {
@@ -499,24 +1744,29 @@ var TokenKitProvider = ({ children }) => {
     return formated_token;
   };
   const actualLoadTokens = async (noOfTokens) => {
-    setLoading(true);
-    const totalPages = Math.ceil(noOfTokens / 25);
-    const allTokens = await Promise.all(
-      Array.from({ length: totalPages }, (_, index) => loadTokens(index + 1))
-    );
-    const combinedTokens = allTokens.flat().map((token, i) => {
-      const formated_token = formatToken(token);
-      return {
-        id: i + 1,
-        ...formated_token
-      };
-    });
-    db.tokens.bulkPut(combinedTokens).then((res) => {
-      console.log("Tokens saved the items successfully");
-    }).catch((error) => {
+    try {
+      setLoading(true);
+      const totalPages = Math.ceil(noOfTokens / 25);
+      const allTokens = await Promise.all(
+        Array.from({ length: totalPages }, (_, index) => loadTokens(index + 1))
+      );
+      const combinedTokens = allTokens.flat().map((token, i) => {
+        const formated_token = formatToken(token);
+        return {
+          id: i + 1,
+          ...formated_token
+        };
+      });
+      db.tokens.clear();
+      db.tokens.bulkPut(combinedTokens).then((res) => {
+        console.log("Tokens saved the items successfully");
+      }).catch((error) => {
+        console.log("Error: ", error);
+      });
+      setLoading(false);
+    } catch (error) {
       console.log("Error: ", error);
-    });
-    setLoading(false);
+    }
   };
   const getContractTokensInfo = async () => {
     try {
@@ -532,12 +1782,33 @@ var TokenKitProvider = ({ children }) => {
       console.error("Error fetching contract tokens information:", error);
     }
   };
-  const reloadTokensFromContract = async () => {
+  const checkAndReloadTokensForVersion = async () => {
     try {
       if (contract) {
         const totalTokens = await contract.get_tokens_count();
-        const noOfTokens = new import_bignumber2.default(totalTokens).toNumber();
-        actualLoadTokens(noOfTokens);
+        const totalTokensReadable = new import_bignumber2.default(totalTokens).toNumber();
+        const tokens_version = await contract.get_tokens_version();
+        const readable_tokens_version = new import_bignumber2.default(tokens_version).toNumber();
+        const info = await db.info.get(1);
+        if (!info) {
+          db.info.put({
+            id: 1,
+            tokens_count: totalTokensReadable,
+            name: "main",
+            tokens_version: readable_tokens_version
+          });
+          actualLoadTokens(totalTokensReadable);
+        } else {
+          if (info?.tokens_version !== readable_tokens_version) {
+            actualLoadTokens(totalTokensReadable);
+            db.info.put({
+              id: 1,
+              tokens_count: totalTokensReadable,
+              name: "main",
+              tokens_version: readable_tokens_version
+            });
+          }
+        }
       }
     } catch (error) {
       console.error("Error fetching contract tokens information:", error);
@@ -554,18 +1825,17 @@ var TokenKitProvider = ({ children }) => {
     openCloseModal,
     selectTokenFunc,
     selectedToken,
-    reloadTokensFromContract,
+    reloadTokensFromContract: checkAndReloadTokensForVersion,
     loadingTokens: loading
   }), [account, contract, address, pragma_contract, modalOpen]);
   (0, import_react2.useEffect)(() => {
     makeContractConnection();
+    checkAndReloadTokensForVersion();
   }, [account]);
   (0, import_react2.useEffect)(() => {
     getContractTokensInfo();
+    checkAndReloadTokensForVersion();
   }, [contract]);
-  (0, import_react2.useEffect)(() => {
-    connectWallet();
-  }, []);
   return /* @__PURE__ */ import_react2.default.createElement(TokenKitContext.Provider, { value: contextValue }, children);
 };
 var tokenkitprovider_default = TokenKitProvider;
@@ -573,17 +1843,16 @@ var tokenkitprovider_default = TokenKitProvider;
 // src/wrapper.tsx
 var import_styles = require("@mantine/core/styles.css");
 var import_styles2 = require("@mantine/notifications/styles.css");
-var import_styles3 = require("@mantine/carousel/styles.css");
 var import_styles_layer = require("@mantine/core/styles.layer.css");
 var import_styles_layer2 = require("mantine-datatable/styles.layer.css");
 var TokenKitWrapper = (props) => {
-  const { children, usingMantine } = props;
+  const { children, usingMantine, theme, primaryColor } = props;
   if (usingMantine) {
-    return /* @__PURE__ */ import_react3.default.createElement(tokenkitprovider_default, null, children);
+    return /* @__PURE__ */ import_react3.default.createElement(import_react3.default.Fragment, null, /* @__PURE__ */ import_react3.default.createElement(tokenkitprovider_default, null, children));
   }
-  return /* @__PURE__ */ import_react3.default.createElement(import_core2.MantineProvider, { theme: {
-    primaryColor: "pink"
-  } }, /* @__PURE__ */ import_react3.default.createElement(import_modals2.ModalsProvider, null, /* @__PURE__ */ import_react3.default.createElement(import_notifications.Notifications, null), /* @__PURE__ */ import_react3.default.createElement(tokenkitprovider_default, null, children)));
+  return /* @__PURE__ */ import_react3.default.createElement(import_core2.MantineProvider, { forceColorScheme: theme, theme: {
+    primaryColor
+  }, withCssVariables: true, cssVariablesSelector: ".tokenkit", classNamesPrefix: "tokenkit" }, /* @__PURE__ */ import_react3.default.createElement("div", { className: "tokenkit" }, /* @__PURE__ */ import_react3.default.createElement(import_modals2.ModalsProvider, null, /* @__PURE__ */ import_react3.default.createElement(import_notifications.Notifications, null), /* @__PURE__ */ import_react3.default.createElement(tokenkitprovider_default, null, children))));
 };
 var wrapper_default = TokenKitWrapper;
 
@@ -595,33 +1864,35 @@ var import_starknet3 = require("starknet");
 var import_icons_react = require("@tabler/icons-react");
 var import_hooks = require("@mantine/hooks");
 var import_modals3 = require("@mantine/modals");
+var import_dexie_react_hooks = require("dexie-react-hooks");
 var SelectTokenModal = ({ children, selectedToken, callBackFunc, themeObject }) => {
   const { reloadTokensFromContract, loadingTokens } = useTokenKitContext();
   const [opened, { open, close }] = (0, import_hooks.useDisclosure)(false);
+  const [totalTokens, setTotalTokens] = (0, import_react4.useState)(0);
   const [tokens, setTokens] = (0, import_react4.useState)([]);
   const [commonTokens, setCommonTokens] = (0, import_react4.useState)([]);
-  const [searchedToken, setSearchedToken] = (0, import_hooks.useDebouncedState)("", 500);
-  const [totalTokens, setTotalTokens] = (0, import_react4.useState)(0);
+  const [searchedToken, setSearchedToken] = (0, import_hooks.useDebouncedState)("", 200);
   const [page, setPage] = (0, import_react4.useState)(1);
+  const have_tokens_changed = (0, import_dexie_react_hooks.useLiveQuery)(() => db.tokens.toArray());
   const tokensPerPage = 25;
   const selectSingle = (token) => {
     callBackFunc && callBackFunc(token);
     close();
   };
   const loadCommonTokens = async () => {
-    const total_tokens = await db.tokens.count();
-    const common_tks = await db.tokens.filter((t) => t.common ?? false).toArray();
+    const common_tks = await db.tokens.filter((t) => (t.common ?? false) && (t.verified ?? false) && (t.public ?? false)).toArray();
     setCommonTokens(common_tks);
-    setTotalTokens(total_tokens);
   };
   const loadTokensFromDB = async () => {
+    const _totalTokens = await db.tokens.count();
+    setTotalTokens(_totalTokens);
     const limit = tokensPerPage;
     const offset = (page - 1) * tokensPerPage;
-    const searchTermTrimmedZeroes = removeTrailingZeros(searchedToken);
-    const regexString = searchTermTrimmedZeroes.split("").join("[\\w\\s]*");
-    const regex = new RegExp(`(${regexString}[\\w\\s]*)`, "gi");
+    const regex = new RegExp(`(${searchedToken})`, "gi");
+    const addressSearchTerm = removeTrailingZeros(searchedToken);
+    const addressRegex = new RegExp(`(${addressSearchTerm})`, "gi");
     const filteredTokens = await db.tokens.filter((token) => {
-      const matched = token.symbol.match(regex) || token.name.match(regex) || removeTrailingZeros(token.address).match(regex);
+      const matched = token.symbol.match(regex) || token.name.match(regex) || removeTrailingZeros(token.address).match(addressRegex);
       return matched ? true : false;
     }).filter((token) => !!token.public).limit(limit).offset(offset).toArray();
     setTokens(filteredTokens);
@@ -647,8 +1918,8 @@ var SelectTokenModal = ({ children, selectedToken, callBackFunc, themeObject }) 
   }, []);
   (0, import_react4.useEffect)(() => {
     loadTokensFromDB();
-  }, [searchedToken, page, loadingTokens]);
-  return /* @__PURE__ */ import_react5.default.createElement(import_react5.default.Fragment, null, /* @__PURE__ */ import_react5.default.createElement(import_core3.Box, { onClick: open }, children), /* @__PURE__ */ import_react5.default.createElement(
+  }, [searchedToken, page, loadingTokens, have_tokens_changed]);
+  return /* @__PURE__ */ import_react5.default.createElement("div", null, /* @__PURE__ */ import_react5.default.createElement(import_core3.Box, { onClick: open }, children), /* @__PURE__ */ import_react5.default.createElement(
     import_core3.Modal,
     {
       bg: themeObject.modalBackground,
@@ -656,6 +1927,7 @@ var SelectTokenModal = ({ children, selectedToken, callBackFunc, themeObject }) 
       c: themeObject.textColor,
       withinPortal: true,
       opened,
+      zIndex: 1e5,
       styles: {
         header: {
           width: "100%"
@@ -680,8 +1952,9 @@ var SelectTokenModal = ({ children, selectedToken, callBackFunc, themeObject }) 
     } }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Box, { h: `${HEADER_HEIGHT}px`, style: {
       background: themeObject.headerFooterBackground
     } }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Group, { p: "md", justify: "space-between", align: "center", className: "w-100" }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Title, { order: 2, fw: 500 }, "Select Token"), /* @__PURE__ */ import_react5.default.createElement(import_core3.ActionIcon, { variant: "light", onClick: close }, /* @__PURE__ */ import_react5.default.createElement(import_icons_react.IconX, null))), /* @__PURE__ */ import_react5.default.createElement(import_core3.Box, { px: "md", h: `${HEADER_HEIGHT}px` }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Stack, { h: `${HEADER_HEIGHT}px`, gap: 6 }, /* @__PURE__ */ import_react5.default.createElement(
-      import_core3.TextInput,
+      import_core3.Input,
       {
+        type: "search",
         defaultValue: searchedToken,
         onChange: (e) => setSearchedToken(e.target.value),
         size: "md",
@@ -692,11 +1965,15 @@ var SelectTokenModal = ({ children, selectedToken, callBackFunc, themeObject }) 
         styles: {
           input: {
             border: `2px solid ${themeObject.searchBorderColor}`,
-            background: themeObject.searchBackgroundColor
+            background: themeObject.searchBackgroundColor,
+            accentColor: "red",
+            "--_input-color": themeObject.searchTextColor
           }
-        }
+        },
+        rightSectionPointerEvents: "all",
+        rightSection: /* @__PURE__ */ import_react5.default.createElement(import_core3.ActionIcon, { onClick: () => setSearchedToken(""), variant: "light" }, " ", /* @__PURE__ */ import_react5.default.createElement(import_icons_react.IconX, { color: themeObject.searchTextColor }), " ")
       }
-    ), /* @__PURE__ */ import_react5.default.createElement(import_core3.Group, { justify: "space-between", align: "center" }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Title, { order: 5, mb: "xs" }, "Common tokens"), /* @__PURE__ */ import_react5.default.createElement(import_core3.Button, { color: "indigo", onClick: reloadTokensFromContract, size: "xs", radius: "md", leftSection: /* @__PURE__ */ import_react5.default.createElement(import_icons_react.IconReload, { size: "16px" }) }, "Refresh")), /* @__PURE__ */ import_react5.default.createElement(import_core3.Box, { style: { overflow: "hidden", maxWidth: "100%" } }, commonTokens?.length === 0 ? /* @__PURE__ */ import_react5.default.createElement(import_core3.Text, { fw: 500, ta: "center", c: themeObject.textColor }, "No listed common tokens.") : null, /* @__PURE__ */ import_react5.default.createElement(import_core3.ScrollArea, { scrollbarSize: 10, pb: "10px", type: "always" }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Group, { display: "flex", style: { flexWrap: "nowrap" }, p: "6px", gap: 10 }, commonTokens?.map((item, i) => /* @__PURE__ */ import_react5.default.createElement(import_core3.Box, { key: `token_s_${i}`, w: "fit-content" }, /* @__PURE__ */ import_react5.default.createElement(
+    ), /* @__PURE__ */ import_react5.default.createElement(import_core3.Group, { justify: "space-between", align: "center" }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Title, { order: 5, mb: "xs" }, "Common tokens"), /* @__PURE__ */ import_react5.default.createElement(import_core3.Button, { variant: "light", onClick: reloadTokensFromContract, size: "xs", radius: "md", leftSection: /* @__PURE__ */ import_react5.default.createElement(import_icons_react.IconReload, { size: "16px" }) }, "Refresh")), /* @__PURE__ */ import_react5.default.createElement(import_core3.Box, { style: { overflow: "hidden", maxWidth: "100%" } }, commonTokens?.length === 0 ? /* @__PURE__ */ import_react5.default.createElement(import_core3.Text, { fw: 500, ta: "center", c: themeObject.textColor }, "No listed common tokens.") : null, /* @__PURE__ */ import_react5.default.createElement(import_core3.ScrollArea, { scrollbarSize: 10, pb: "10px", type: "always" }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Group, { display: "flex", style: { flexWrap: "nowrap" }, p: "6px", gap: 10 }, commonTokens?.map((item, i) => /* @__PURE__ */ import_react5.default.createElement(import_core3.Box, { key: `token_s_${i}`, w: "fit-content" }, /* @__PURE__ */ import_react5.default.createElement(
       SelectTokenBtn,
       {
         token: item,
@@ -708,7 +1985,7 @@ var SelectTokenModal = ({ children, selectedToken, callBackFunc, themeObject }) 
     ))))))))), /* @__PURE__ */ import_react5.default.createElement(import_core3.Box, { style: {
       height: `calc(100% - ${HEADER_HEIGHT}px - 60px)`,
       background: themeObject.modalBackground
-    } }, /* @__PURE__ */ import_react5.default.createElement(import_core3.ScrollArea, { className: "h-100" }, tokens?.length === 0 ? /* @__PURE__ */ import_react5.default.createElement(import_core3.Box, { h: 300 }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Center, { h: 300 }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Text, { fw: 500, ta: "center", maw: "80%", c: themeObject.textColor }, "No tokens have been listed yet! be the first to list ", /* @__PURE__ */ import_react5.default.createElement(import_core3.Anchor, { href: "/", target: "_blank" }, "here.")))) : null, /* @__PURE__ */ import_react5.default.createElement(import_core3.Stack, { p: "xs", gap: 0 }, sortTokens()?.map((item, i) => /* @__PURE__ */ import_react5.default.createElement(
+    } }, /* @__PURE__ */ import_react5.default.createElement(import_core3.ScrollArea, { className: "h-100" }, tokens?.length === 0 ? /* @__PURE__ */ import_react5.default.createElement(import_core3.Box, { h: 300 }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Center, { h: 300 }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Text, { fw: 500, ta: "center", maw: "80%", c: themeObject.textColor }, "No tokens have been listed yet! be the first to list ", /* @__PURE__ */ import_react5.default.createElement(import_core3.Anchor, { href: "https://tokenkit-gamma.vercel.app/", target: "_blank" }, "here.")))) : null, /* @__PURE__ */ import_react5.default.createElement(import_core3.Stack, { p: "xs", gap: 0 }, sortTokens()?.map((item, i) => /* @__PURE__ */ import_react5.default.createElement(
       SelectToken,
       {
         key: `dfd_${i}`,
@@ -721,28 +1998,40 @@ var SelectTokenModal = ({ children, selectedToken, callBackFunc, themeObject }) 
     ))))), /* @__PURE__ */ import_react5.default.createElement(import_core3.Box, { px: "md", style: (theme) => ({
       height: `60px`,
       background: themeObject.headerFooterBackground
-    }) }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Group, { style: { height: "100%" }, align: "center", justify: "space-between" }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Anchor, { href: "/", size: "sm" }, "Add New"), /* @__PURE__ */ import_react5.default.createElement(import_core3.Pagination, { value: page, radius: "md", onChange: setPage, total: Math.ceil(totalTokens / tokensPerPage), size: "sm" }))))
+    }) }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Group, { style: { height: "100%" }, align: "center", justify: "space-between" }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Anchor, { href: "https://tokenkit-gamma.vercel.app", size: "sm" }, "Add New"), /* @__PURE__ */ import_react5.default.createElement(import_core3.Pagination, { variant: "light", value: page, radius: "md", onChange: setPage, total: Math.ceil(totalTokens / tokensPerPage), size: "sm" }))))
   ));
 };
 var SelectToken = ({ token, select, selectedToken, bgColor, hoverColor }) => {
-  const { colorScheme } = (0, import_core3.useMantineColorScheme)();
   const { pragma_contract } = useTokenKitContext();
+  const [loading, setLoading] = (0, import_react4.useState)(false);
   const [tokenPrice, setTokenPrice] = (0, import_react4.useState)(null);
   const getTokenPrice = async () => {
-    if (pragma_contract) {
+    setTokenPrice(null);
+    if (pragma_contract && token?.pair_id !== "-" && token?.pair_id !== "" && token?.pair_id !== "N/A") {
       const SPOTENTRY_ENUM = new import_starknet3.CairoCustomEnum({
         SpotEntry: token?.pair_id
       });
-      const res = await pragma_contract.get_data_median(SPOTENTRY_ENUM);
+      setLoading(true);
+      try {
+        const res = await pragma_contract.get_data_median(SPOTENTRY_ENUM);
+        const price = getRealPrice(res);
+        setTokenPrice(price);
+        setLoading(false);
+      } catch (error) {
+        setLoading(false);
+      }
     }
   };
   const selectToken = () => {
-    select(token);
+    if (tokenPrice) {
+      select({ ...token, price: tokenPrice });
+    }
   };
   const has_changed = (0, import_react4.useMemo)(() => ({
     pragma_contract,
-    selectedToken
-  }), [pragma_contract, selectedToken]);
+    selectedToken,
+    token
+  }), [pragma_contract, selectedToken, token]);
   (0, import_react4.useEffect)(() => {
     getTokenPrice();
   }, [has_changed]);
@@ -750,26 +2039,32 @@ var SelectToken = ({ token, select, selectedToken, bgColor, hoverColor }) => {
     backgroundColor: `${selectedToken?.address === token?.address ? hoverColor : bgColor} !important`,
     cursor: "pointer",
     pointerEvents: selectedToken?.address === token?.address ? "none" : "all"
-  }, onClick: () => selectToken() }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Group, { justify: "space-between", align: "center" }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Group, { align: "center" }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Avatar, { size: "sm", src: token?.icon, variant: "light", color: "pink" }), /* @__PURE__ */ import_react5.default.createElement(import_core3.Stack, { gap: -10 }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Text, { size: "md" }, /* @__PURE__ */ import_react5.default.createElement("b", null, token?.symbol)), /* @__PURE__ */ import_react5.default.createElement(import_core3.Text, { size: "sm", fw: 400 }, token?.name))), /* @__PURE__ */ import_react5.default.createElement(import_core3.Text, { size: "sm", fw: 500 }, "$", formatNumberInternational(tokenPrice))));
+  }, onClick: () => selectToken() }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Group, { justify: "space-between", align: "center" }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Group, { align: "center" }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Avatar, { size: "sm", src: token?.icon, variant: "light", color: "pink" }), /* @__PURE__ */ import_react5.default.createElement(import_core3.Stack, { gap: -10 }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Text, { size: "md" }, /* @__PURE__ */ import_react5.default.createElement("b", null, token?.symbol)), /* @__PURE__ */ import_react5.default.createElement(import_core3.Text, { size: "sm", fw: 400 }, token?.name))), loading ? /* @__PURE__ */ import_react5.default.createElement(import_core3.Skeleton, { height: 10, width: 40 }) : null, tokenPrice ? /* @__PURE__ */ import_react5.default.createElement(import_core3.Text, { size: "sm", fw: 500 }, "$", formatNumberInternational(tokenPrice?.price)) : null));
 };
 var SelectTokenBtn = ({ token, select, selectedToken, bgColor, hoverColor }) => {
-  const { colorScheme } = (0, import_core3.useMantineColorScheme)();
   const { pragma_contract } = useTokenKitContext();
   const [tokenPrice, setTokenPrice] = (0, import_react4.useState)(null);
   const [_loading, setLoading] = (0, import_react4.useState)(false);
   const getTokenPrice = async () => {
-    setLoading(true);
-    if (pragma_contract) {
+    if (pragma_contract && token?.pair_id !== "-" && token?.pair_id !== "" && token?.pair_id !== "N/A") {
       const SPOTENTRY_ENUM = new import_starknet3.CairoCustomEnum({
         SpotEntry: token?.pair_id
       });
-      const res = await pragma_contract.get_data_median(SPOTENTRY_ENUM);
+      setLoading(true);
+      try {
+        const res = await pragma_contract.get_data_median(SPOTENTRY_ENUM);
+        const price = getRealPrice(res);
+        setTokenPrice(price);
+        setLoading(false);
+      } catch (error) {
+        setLoading(false);
+      }
     }
-    setLoading(false);
   };
   const selectToken = () => {
-    setTokenPrice(tokenPrice);
-    select(token);
+    if (tokenPrice) {
+      select({ ...token, price: tokenPrice });
+    }
   };
   (0, import_react4.useEffect)(() => {
     getTokenPrice();
@@ -813,7 +2108,7 @@ var import_react7 = __toESM(require("react"));
 var import_react8 = require("react");
 var UpdateTokenForm = (props) => {
   const { data } = props;
-  const { contract } = useTokenKitContext();
+  const { contract, reloadTokensFromContract } = useTokenKitContext();
   const [loading, setLoading] = (0, import_react8.useState)(false);
   const form = (0, import_form.useForm)({
     initialValues: {
@@ -829,7 +2124,6 @@ var UpdateTokenForm = (props) => {
     }
   });
   const handleSubmit = () => {
-    console.log(contract);
     if (contract) {
       const call_data = form.values;
       call_data.icon_link = form.values.icon_link;
@@ -841,6 +2135,7 @@ var UpdateTokenForm = (props) => {
           color: "green",
           icon: /* @__PURE__ */ import_react7.default.createElement(import_icons_react3.IconCheck, null)
         });
+        reloadTokensFromContract && reloadTokensFromContract();
       }).catch((err) => {
         (0, import_notifications2.showNotification)({
           title: "Update failed",
@@ -857,7 +2152,7 @@ var UpdateTokenForm = (props) => {
 };
 var ListTokenForm = () => {
   const [loading, setLoading] = (0, import_react8.useState)(false);
-  const { contract } = useTokenKitContext();
+  const { contract, reloadTokensFromContract } = useTokenKitContext();
   const form = (0, import_form.useForm)({
     initialValues: {
       address: "",
@@ -881,6 +2176,7 @@ var ListTokenForm = () => {
           color: "green",
           icon: /* @__PURE__ */ import_react7.default.createElement(import_icons_react3.IconCheck, null)
         });
+        reloadTokensFromContract && reloadTokensFromContract();
       }).catch((err) => {
         (0, import_notifications2.showNotification)({
           title: "Token listing failed",
@@ -972,15 +2268,17 @@ var UpdateAdminForm = (props) => {
 
 // src/components/TokensTable.tsx
 var import_form2 = require("@mantine/form");
+var import_dexie_react_hooks2 = require("dexie-react-hooks");
 var TokensTable = (props) => {
   const { reloadTokensFromContract, loadingTokens } = useTokenKitContext();
   const { DataTable } = props;
+  const [page, setPage] = (0, import_react9.useState)(1);
   const [tokens, setTokens] = (0, import_react9.useState)([]);
   const [token, setToken] = (0, import_react9.useState)();
   const [opened, { open, close }] = (0, import_hooks2.useDisclosure)(false);
-  const [totalTokens, setTotalTokens] = (0, import_react9.useState)(0);
-  const [page, setPage] = (0, import_react9.useState)(1);
   const tokensPerPage = 25;
+  const totalTokens = (0, import_dexie_react_hooks2.useLiveQuery)(() => db.tokens.count());
+  const have_tokens_changed = (0, import_dexie_react_hooks2.useLiveQuery)(() => db.tokens.toArray());
   const filterForm = (0, import_form2.useForm)({
     initialValues: {
       searchedToken: "",
@@ -989,16 +2287,14 @@ var TokensTable = (props) => {
       verified: "all"
     }
   });
-  const loadTokensFromDB = async () => {
-    const tot_tokens = await db.tokens.count();
-    setTotalTokens(tot_tokens);
+  async function loadTokensFromDB() {
     const limit = tokensPerPage;
     const offset = (page - 1) * tokensPerPage;
-    const searchTermTrimmedZeroes = removeTrailingZeros(filterForm.values.searchedToken);
-    const regexString = searchTermTrimmedZeroes.split("").join("[\\w\\s]*");
-    const regex = new RegExp(`(${regexString}[\\w\\s]*)`, "gi");
+    const regex = new RegExp(`(${filterForm.values.searchedToken})`, "gi");
+    const addressSearchTerm = removeTrailingZeros(filterForm.values.searchedToken);
+    const addressRegex = new RegExp(`(${addressSearchTerm})`, "gi");
     const filteredTokens = await db.tokens.filter((token2) => {
-      const matched = token2.symbol.match(regex) || token2.name.match(regex) || removeTrailingZeros(token2.address).match(regex);
+      const matched = token2.symbol.match(regex) || token2.name.match(regex) || removeTrailingZeros(token2.address).match(addressRegex);
       return matched ? true : false;
     }).filter((token2) => {
       const common = filterForm.values.common;
@@ -1026,17 +2322,17 @@ var TokensTable = (props) => {
       return true;
     }).limit(limit).offset(offset).toArray();
     setTokens(filteredTokens);
-  };
+  }
   const updateTokenModal = (token2) => {
     setToken(token2);
     open();
   };
   const reloadTokens = () => {
     reloadTokensFromContract && reloadTokensFromContract();
-    loadTokensFromDB();
   };
   const sortTokens = () => {
-    return tokens.sort((a, b) => {
+    const _tokens = tokens;
+    return _tokens?.sort((a, b) => {
       if (a.verified && a.common && !b.verified) {
         return -1;
       } else if (a.verified && !a.common && !b.verified) {
@@ -1048,11 +2344,11 @@ var TokensTable = (props) => {
       } else {
         return a.common ? -1 : 1;
       }
-    });
+    }) ?? [];
   };
   (0, import_react9.useEffect)(() => {
     loadTokensFromDB();
-  }, [page, loadingTokens]);
+  }, [have_tokens_changed]);
   return /* @__PURE__ */ import_react9.default.createElement(import_core6.Stack, null, /* @__PURE__ */ import_react9.default.createElement(import_core6.Box, null, /* @__PURE__ */ import_react9.default.createElement("form", { onSubmit: filterForm.onSubmit((_values) => loadTokensFromDB()) }, /* @__PURE__ */ import_react9.default.createElement(import_core6.Grid, null, /* @__PURE__ */ import_react9.default.createElement(import_core6.Grid.Col, { span: { md: 3 } }, /* @__PURE__ */ import_react9.default.createElement(import_core6.TextInput, { label: "Search Token", placeholder: "Search by name, symbol or address", radius: "md", ...filterForm.getInputProps("searchedToken") })), /* @__PURE__ */ import_react9.default.createElement(import_core6.Grid.Col, { span: { md: 2 } }, /* @__PURE__ */ import_react9.default.createElement(import_core6.Select, { label: "Common", radius: "md", placeholder: "True/False", data: [
     { value: "all", label: "All" },
     { value: "true", label: "True" },

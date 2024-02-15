@@ -18,10 +18,19 @@ export interface IToken {
 export interface ITokenKitWrapper {
     children: ReactNode
     usingMantine: boolean
+    theme: 'dark' | 'light'
+    primaryColor: 'blue' | 'cyan' | 'dark' | 'grape' | 'gray' | 'green' | 'indigo' | 'lime' | 'orange' | 'pink' | 'red' | 'teal' | 'violet' | 'yellow'
 }
 
 export interface ILoadTokenKit {
     children: ReactNode
     select: any
     token: IToken
+}
+
+export interface TokensDBInfo {
+    id: 1,
+    name: string
+    tokens_version: number
+    tokens_count: number
 }

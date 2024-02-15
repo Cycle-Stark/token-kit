@@ -12,7 +12,7 @@ interface IUpdateTokenForm {
 
 export const UpdateTokenForm = (props: IUpdateTokenForm) => {
     const { data } = props
-    const { contract } = useTokenKitContext()
+    const { contract, reloadTokensFromContract } = useTokenKitContext()
 
     const [loading, setLoading] = useState(false)
 
@@ -31,7 +31,6 @@ export const UpdateTokenForm = (props: IUpdateTokenForm) => {
     })
 
     const handleSubmit = () => {
-        console.log(contract)
         if (contract) {
             const call_data = form.values
             call_data.icon_link = form.values.icon_link
@@ -44,6 +43,7 @@ export const UpdateTokenForm = (props: IUpdateTokenForm) => {
                     color: 'green',
                     icon: <IconCheck />
                 })
+                reloadTokensFromContract && reloadTokensFromContract()
             }).catch((err: any) => {
                 showNotification({
                     title: 'Update failed',
@@ -93,7 +93,7 @@ export const UpdateTokenForm = (props: IUpdateTokenForm) => {
 
 export const ListTokenForm = () => {
     const [loading, setLoading] = useState(false)
-    const { contract } = useTokenKitContext()
+    const { contract, reloadTokensFromContract } = useTokenKitContext()
 
     const form = useForm({
         initialValues: {
@@ -120,6 +120,7 @@ export const ListTokenForm = () => {
                     color: 'green',
                     icon: <IconCheck />
                 })
+                reloadTokensFromContract && reloadTokensFromContract()
             }).catch((err: any) => {
                 showNotification({
                     title: 'Token listing failed',

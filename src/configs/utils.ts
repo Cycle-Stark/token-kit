@@ -2,9 +2,14 @@ import { BigNumber } from 'bignumber.js'
 import token_kit_abi from './../assets/token_kit_abi.json'
 import { shortString } from 'starknet'
 
+import pragma_abi from './../assets/pragmaabi.json'
+
 
 export const TOKEN_KIT_ABI = token_kit_abi
-export const TOKEN_KIT_CONTRACT_ADDRESS = "0xa6715bb9e01d8e096f962569b9961e075c274e5ea65516de6c924d943681f9"
+export const TOKEN_KIT_CONTRACT_ADDRESS = "0x72fccd711f5a27e50b48d56514717847b45ab3620a517cd9cad61ded3b5895d"
+
+export const PRAGMA_ABI = pragma_abi
+export const PRAGMA_CONTRACT_ADDRESS = "0x06df335982dddce41008e4c03f2546fa27276567b5274c7d0c1262f3c2b5d167"	
 
 export function isDarkMode(colorscheme: any): boolean {
     return colorscheme === 'dark' ? true : false
@@ -63,4 +68,23 @@ export function limitChars(str: string, count: number, show_dots: boolean) {
         return `${str.substring(0, count)} ${show_dots ? '...' : ''}`
     }
     return str
+}
+
+
+export function timeStampToDate(timestamp: number) {
+    if (!timestamp) return null
+    const timestampInMilliseconds = timestamp * 1000;
+    const date = new Date(timestampInMilliseconds);
+    return date;
+}
+
+export function getRealPrice(val: any) {
+    let decimals = BigNumber(val.decimals).toNumber()
+    let ts = BigNumber(val.last_updated_timestamp).toNumber()
+    let real_price = {
+        price: BigNumber(val.price).dividedBy(10 ** decimals).toNumber(),
+        last_updated_timestamp: timeStampToDate(ts),
+        num_sources_aggregated: BigNumber(val.num_sources_aggregated).toNumber()
+    }
+    return real_price
 }

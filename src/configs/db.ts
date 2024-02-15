@@ -1,9 +1,10 @@
 import Dexie, { Table } from 'dexie';
-import { IToken } from '../types';
+import { IToken, TokensDBInfo } from '../types';
 
   
   export class TokenKitDBDexie extends Dexie {
     tokens!: Table<IToken>
+    info!: Table<TokensDBInfo>
   
     constructor() {
       super('TokenKitDB');
@@ -12,6 +13,9 @@ import { IToken } from '../types';
       });
       this.version(2).stores({
         tokens: '++id, name, symbol, decimals, address, verified, public, common, pair_id, [verified+common], [verified+public], [verified+common+public]'
+      });
+      this.version(3).stores({
+        info: '++id, name, tokens_count, tokens_version'
       });
     }
   }

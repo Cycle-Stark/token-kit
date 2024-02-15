@@ -1,7 +1,7 @@
 import React, { ReactNode, useEffect, useMemo, useState } from 'react'
 import { Contract, RpcProvider } from 'starknet'
 import { connect, disconnect } from 'starknetkit'
-import { TOKEN_KIT_ABI, TOKEN_KIT_CONTRACT_ADDRESS, bigintToLongAddress, bigintToShortStr } from '../configs/utils'
+import { PRAGMA_ABI, PRAGMA_CONTRACT_ADDRESS, TOKEN_KIT_ABI, TOKEN_KIT_CONTRACT_ADDRESS, bigintToLongAddress, bigintToShortStr } from '../configs/utils'
 import { modals } from '@mantine/modals'
 import { Text } from '@mantine/core'
 import { IToken } from '../types'
@@ -26,17 +26,21 @@ const TokenKitProvider = ({ children }: IAppProvider) => {
     const [loading, setLoading] = useState(false)
 
     const connectWallet = async () => {
-        let provider = new RpcProvider({ nodeUrl: 'https://starknet-goerli.infura.io/v3/958e1b411a40480eacb8c0f5d640a8ec' })
-        const connection: any = await connect({
-            webWalletUrl: "https://web.argent.xyz",
-            dappName: "Token Kit",
-            modalMode: "alwaysAsk",
-            provider: provider
-        });
-        if (connection && connection?.wallet) {
-            setConnection(connection);
-            setAccount(connection?.wallet?.account);
-            setAddress(connection?.wallet?.selectedAddress);
+        try {
+            let provider = new RpcProvider({ nodeUrl: 'https://starknet-goerli.infura.io/v3/958e1b411a40480eacb8c0f5d640a8ec' })
+            const connection: any = await connect({
+                webWalletUrl: "https://web.argent.xyz",
+                dappName: "Token Kit",
+                modalMode: "alwaysAsk",
+                provider: provider
+            });
+            if (connection && connection?.wallet) {
+                setConnection(connection);
+                setAccount(connection?.wallet?.account);
+                setAddress(connection?.wallet?.selectedAddress);
+            }
+        } catch (err) {
+
         }
     };
 
@@ -66,12 +70,21 @@ const TokenKitProvider = ({ children }: IAppProvider) => {
 
 
     const makeContractConnection = () => {
-        let contract = new Contract(TOKEN_KIT_ABI, TOKEN_KIT_CONTRACT_ADDRESS)
+        try {
+            let provider = new RpcProvider({ nodeUrl: 'https://starknet-goerli.infura.io/v3/958e1b411a40480eacb8c0f5d640a8ec' })
 
-        if (account) {
-            contract = new Contract(TOKEN_KIT_ABI, TOKEN_KIT_CONTRACT_ADDRESS, account)
+            let pragma_contract = new Contract(PRAGMA_ABI, PRAGMA_CONTRACT_ADDRESS, provider)
+            setPragmaContract(pragma_contract)
+
+            let contract = new Contract(TOKEN_KIT_ABI, TOKEN_KIT_CONTRACT_ADDRESS, provider)
+
+            if (account) {
+                contract = new Contract(TOKEN_KIT_ABI, TOKEN_KIT_CONTRACT_ADDRESS, account)
+            }
+            setContract(contract)
+        } catch (error) {
+
         }
-        setContract(contract)
     }
 
     const handleConnetDisconnectWalletBtnClick = () => {
@@ -122,30 +135,35 @@ const TokenKitProvider = ({ children }: IAppProvider) => {
     }
 
     const actualLoadTokens = async (noOfTokens: number) => {
-        setLoading(true)
-        // Calculate the number of pages based on 25 items per page
-        const totalPages = Math.ceil(noOfTokens / 25);
+        try {
+            setLoading(true)
+            // Calculate the number of pages based on 25 items per page
+            const totalPages = Math.ceil(noOfTokens / 25);
 
-        // Use Promise.all to parallelize fetching token data for all pages
-        const allTokens = await Promise.all(
-            Array.from({ length: totalPages }, (_, index) => loadTokens(index + 1))
-        );
+            // Use Promise.all to parallelize fetching token data for all pages
+            const allTokens = await Promise.all(
+                Array.from({ length: totalPages }, (_, index) => loadTokens(index + 1))
+            );
 
-        // Combine the arrays of tokens from different pages if needed
-        const combinedTokens = allTokens.flat().map((token: IToken, i: number) => {
-            const formated_token = formatToken(token)
-            return ({
-                id: i + 1,
-                ...formated_token
+            // Combine the arrays of tokens from different pages if needed
+            const combinedTokens = allTokens.flat().map((token: IToken, i: number) => {
+                const formated_token = formatToken(token)
+                return ({
+                    id: i + 1,
+                    ...formated_token
+                })
+            });
+            db.tokens.clear()
+            db.tokens.bulkPut(combinedTokens,).then((res: any) => {
+                console.log("Tokens saved the items successfully")
+            }).catch((error: any) => {
+                console.log("Error: ", error)
             })
-        });
-
-        db.tokens.bulkPut(combinedTokens,).then((res: any) => {
-            console.log("Tokens saved the items successfully")
-        }).catch((error: any) => {
+            setLoading(false)
+        }
+        catch (error: any) {
             console.log("Error: ", error)
-        })
-        setLoading(false)
+        }
     }
 
     const getContractTokensInfo = async () => {
@@ -166,13 +184,49 @@ const TokenKitProvider = ({ children }: IAppProvider) => {
         }
     };
 
-    const reloadTokensFromContract = async () => {
+    // const reloadTokensFromContract = async () => {
+    //     try {
+    //         if (contract) {
+    //             const totalTokens = await contract.get_tokens_count();
+    //             const noOfTokens = new BigNumber(totalTokens).toNumber();
+    //             actualLoadTokens(noOfTokens)
+    //         }
+    //     } catch (error) {
+    //         console.error("Error fetching contract tokens information:", error);
+    //     }
+    // }
+
+    const checkAndReloadTokensForVersion = async () => {
         try {
             if (contract) {
                 const totalTokens = await contract.get_tokens_count();
-                const noOfTokens = new BigNumber(totalTokens).toNumber();
-                actualLoadTokens(noOfTokens)
-                // window.location.reload()
+                const totalTokensReadable = new BigNumber(totalTokens).toNumber()
+
+                const tokens_version = await contract.get_tokens_version();
+                const readable_tokens_version = new BigNumber(tokens_version).toNumber()
+
+                const info = await db.info.get(1)
+
+                if (!info) {
+                    db.info.put({
+                        id: 1,
+                        tokens_count: totalTokensReadable,
+                        name: 'main',
+                        tokens_version: readable_tokens_version
+                    })
+                    actualLoadTokens(totalTokensReadable)
+                }
+                else {
+                    if (info?.tokens_version !== readable_tokens_version) {
+                        actualLoadTokens(totalTokensReadable)
+                        db.info.put({
+                            id: 1,
+                            tokens_count: totalTokensReadable,
+                            name: 'main',
+                            tokens_version: readable_tokens_version
+                        })
+                    }
+                }
             }
         } catch (error) {
             console.error("Error fetching contract tokens information:", error);
@@ -190,21 +244,23 @@ const TokenKitProvider = ({ children }: IAppProvider) => {
         openCloseModal,
         selectTokenFunc,
         selectedToken,
-        reloadTokensFromContract,
+        reloadTokensFromContract: checkAndReloadTokensForVersion,
         loadingTokens: loading
     }), [account, contract, address, pragma_contract, modalOpen]);
 
     useEffect(() => {
         makeContractConnection()
+        checkAndReloadTokensForVersion()
     }, [account])
 
     useEffect(() => {
         getContractTokensInfo()
+        checkAndReloadTokensForVersion()
     }, [contract])
 
-    useEffect(() => {
-        connectWallet()
-    }, [])
+    // useEffect(() => {
+    //     connectWallet()
+    // }, [])
 
     return (
         <TokenKitContext.Provider value={contextValue}>

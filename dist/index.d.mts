@@ -16,6 +16,8 @@ interface IToken {
 interface ITokenKitWrapper {
     children: ReactNode;
     usingMantine: boolean;
+    theme: 'dark' | 'light';
+    primaryColor: 'blue' | 'cyan' | 'dark' | 'grape' | 'gray' | 'green' | 'indigo' | 'lime' | 'orange' | 'pink' | 'red' | 'teal' | 'violet' | 'yellow';
 }
 
 declare const TokenKitWrapper: (props: ITokenKitWrapper) => React.JSX.Element;
@@ -45,6 +47,7 @@ interface ISelectTokenModal {
         headerFooterBackground: string;
         searchBorderColor: string;
         searchBackgroundColor: string;
+        searchTextColor: string;
         tokenBackgroundColor: string;
         tokenHoverColor: string;
     };

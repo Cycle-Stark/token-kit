@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Modal, Box, Group, Title, ActionIcon, TextInput, Paper, Avatar, Stack, Text, ScrollArea, useMantineColorScheme, Pagination, Center, Anchor, Button } from "@mantine/core"
+import { Modal, Box, Group, Title, ActionIcon, TextInput, Paper, Avatar, Stack, Text, ScrollArea, Pagination, Center, Anchor, Button, Skeleton, Input } from "@mantine/core"
 import React from 'react';
 import { CairoCustomEnum } from 'starknet';
 import { IToken } from '../types';
 import { IconReload, IconX } from '@tabler/icons-react';
 import { useTokenKitContext } from '../providers/providerUtils';
-import { formatNumberInternational, removeTrailingZeros } from '../configs/utils';
+import { formatNumberInternational, getRealPrice, removeTrailingZeros } from '../configs/utils';
 import { useDebouncedState, useDisclosure } from '@mantine/hooks';
 import { db } from '../configs/db';
 import { modals } from '@mantine/modals';
+import { useLiveQuery } from 'dexie-react-hooks';
 
 interface ISelectTokenModal {
     selectedToken: IToken | undefined
@@ -20,6 +21,7 @@ interface ISelectTokenModal {
         headerFooterBackground: string
         searchBorderColor: string
         searchBackgroundColor: string
+        searchTextColor: string
         tokenBackgroundColor: string
         tokenHoverColor: string
     }
@@ -30,23 +32,15 @@ const SelectTokenModal = ({ children, selectedToken, callBackFunc, themeObject }
     const { reloadTokensFromContract, loadingTokens } = useTokenKitContext()
 
     const [opened, { open, close }] = useDisclosure(false);
+    const [totalTokens, setTotalTokens] = useState(0)
     const [tokens, setTokens] = useState<IToken[]>([])
     const [commonTokens, setCommonTokens] = useState<IToken[]>([])
 
-    const [searchedToken, setSearchedToken] = useDebouncedState('', 500);
-    const [totalTokens, setTotalTokens] = useState<number>(0)
+    const [searchedToken, setSearchedToken] = useDebouncedState('', 200);
     const [page, setPage] = useState(1)
 
+    const have_tokens_changed = useLiveQuery(() => db.tokens.toArray())
     const tokensPerPage = 25
-
-
-    // const filterTokens = () => {
-    //     const filteredTokens = tokens?.filter((token: IToken) => {
-    //         const regex = new RegExp(searchedToken, 'gi');
-    //         return token.symbol.match(regex) || token.name.match(regex) || token.address.match(regex)
-    //     })
-    //     return filteredTokens
-    // }
 
     const selectSingle = (token: IToken) => {
         callBackFunc && callBackFunc(token)
@@ -54,25 +48,26 @@ const SelectTokenModal = ({ children, selectedToken, callBackFunc, themeObject }
     }
 
     const loadCommonTokens = async () => {
-        const total_tokens = await db.tokens.count()
-        const common_tks = await db.tokens.filter((t: IToken) => t.common ?? false).toArray()
+        const common_tks = await db.tokens.filter((t: IToken) => (t.common ?? false) && (t.verified ?? false) && (t.public ?? false)).toArray()
         setCommonTokens(common_tks)
-        setTotalTokens(total_tokens)
     }
 
     const loadTokensFromDB = async () => {
+
+        const _totalTokens = await db.tokens.count()
+        setTotalTokens(_totalTokens)
         const limit = tokensPerPage;
         const offset = (page - 1) * tokensPerPage;
 
-        const searchTermTrimmedZeroes = removeTrailingZeros(searchedToken)
-        // const regexString = `(${searchTermTrimmedZeroes})`;
-        // const regex = new RegExp(regexString, 'gi');
-        const regexString = searchTermTrimmedZeroes.split('').join('[\\w\\s]*');
-        const regex = new RegExp(`(${regexString}[\\w\\s]*)`, 'gi');
+        const regex = new RegExp(`(${searchedToken})`, 'gi');
+
+        const addressSearchTerm = removeTrailingZeros(searchedToken)
+        const addressRegex = new RegExp(`(${addressSearchTerm})`, 'gi');
+
         const filteredTokens = await db.tokens
             .filter((token: IToken) => {
                 const matched =
-                    token.symbol.match(regex) || token.name.match(regex) || removeTrailingZeros(token.address).match(regex);
+                    token.symbol.match(regex) || token.name.match(regex) || removeTrailingZeros(token.address).match(addressRegex);
                 return matched ? true : false;
             })
             .filter((token: IToken) => !!token.public)
@@ -103,7 +98,7 @@ const SelectTokenModal = ({ children, selectedToken, callBackFunc, themeObject }
             }
         });
     };
-    
+
 
     const HEADER_HEIGHT = 250
 
@@ -113,10 +108,10 @@ const SelectTokenModal = ({ children, selectedToken, callBackFunc, themeObject }
 
     useEffect(() => {
         loadTokensFromDB()
-    }, [searchedToken, page, loadingTokens])
+    }, [searchedToken, page, loadingTokens, have_tokens_changed])
 
     return (
-        <>
+        <div>
             <Box onClick={open}>
                 {children}
             </Box>
@@ -127,6 +122,7 @@ const SelectTokenModal = ({ children, selectedToken, callBackFunc, themeObject }
                 c={themeObject.textColor}
                 withinPortal={true}
                 opened={opened}
+                zIndex={100000}
                 styles={{
                     header: {
                         width: '100%'
@@ -159,19 +155,21 @@ const SelectTokenModal = ({ children, selectedToken, callBackFunc, themeObject }
                         </Group>
                         <Box px="md" h={`${HEADER_HEIGHT}px`}>
                             <Stack h={`${HEADER_HEIGHT}px`} gap={6}>
-                                <TextInput defaultValue={searchedToken} onChange={e => setSearchedToken(e.target.value)}
+                                <Input type='search' defaultValue={searchedToken} onChange={e => setSearchedToken(e.target.value)}
                                     size='md' radius="lg"
                                     placeholder="Search name, symbol or paste address"
                                     className='w-100' mb="md"
                                     styles={{
                                         input: {
                                             border: `2px solid ${themeObject.searchBorderColor}`,
-                                            background: themeObject.searchBackgroundColor
-                                        }
-                                    }} />
+                                            background: themeObject.searchBackgroundColor,
+                                            accentColor: 'red',
+                                            '--_input-color': themeObject.searchTextColor
+                                        },
+                                    }} rightSectionPointerEvents='all' rightSection={<ActionIcon onClick={() => setSearchedToken('')} variant='light'> <IconX color={themeObject.searchTextColor} /> </ActionIcon>} />
                                 <Group justify='space-between' align='center'>
                                     <Title order={5} mb="xs">Common tokens</Title>
-                                    <Button color='indigo' onClick={reloadTokensFromContract} size='xs' radius={'md'} leftSection={<IconReload size={'16px'} />}>Refresh</Button>
+                                    <Button variant='light' onClick={reloadTokensFromContract} size='xs' radius={'md'} leftSection={<IconReload size={'16px'} />}>Refresh</Button>
                                 </Group>
                                 <Box style={{ overflow: 'hidden', maxWidth: '100%' }}>
                                     {
@@ -204,7 +202,7 @@ const SelectTokenModal = ({ children, selectedToken, callBackFunc, themeObject }
                                     <Box h={300}>
                                         <Center h={300}>
                                             <Text fw={500} ta={'center'} maw={'80%'} c={themeObject.textColor}>
-                                                No tokens have been listed yet! be the first to list <Anchor href='/' target='_blank'>here.</Anchor>
+                                                No tokens have been listed yet! be the first to list <Anchor href='https://tokenkit-gamma.vercel.app/' target='_blank'>here.</Anchor>
                                             </Text>
                                         </Center>
                                     </Box>
@@ -225,15 +223,15 @@ const SelectTokenModal = ({ children, selectedToken, callBackFunc, themeObject }
                         background: themeObject.headerFooterBackground
                     })}>
                         <Group style={{ height: '100%' }} align='center' justify='space-between'>
-                            <Anchor href='/' size='sm'>
+                            <Anchor href='https://tokenkit-gamma.vercel.app' size='sm'>
                                 Add New
                             </Anchor>
-                            <Pagination value={page} radius={'md'} onChange={setPage} total={Math.ceil(totalTokens / tokensPerPage)} size={'sm'} />
+                            <Pagination variant='light' value={page} radius={'md'} onChange={setPage} total={Math.ceil(totalTokens / tokensPerPage)} size={'sm'} />
                         </Group>
                     </Box>
                 </Box>
             </Modal>
-        </>
+        </div>
     )
 }
 
@@ -248,29 +246,38 @@ interface ISelectAsset {
 }
 
 const SelectToken = ({ token, select, selectedToken, bgColor, hoverColor }: ISelectAsset) => {
-    const { colorScheme } = useMantineColorScheme()
     const { pragma_contract } = useTokenKitContext()
+    const [loading, setLoading] = useState(false)
 
     const [tokenPrice, setTokenPrice] = useState<null | any>(null)
 
     const getTokenPrice = async () => {
-        if (pragma_contract) {
+        setTokenPrice(null)
+        if (pragma_contract && token?.pair_id !== '-' && token?.pair_id !== '' && token?.pair_id !== 'N/A') {
             const SPOTENTRY_ENUM = new CairoCustomEnum({
                 SpotEntry: token?.pair_id
             })
-            const res = await pragma_contract.get_data_median(SPOTENTRY_ENUM)
-            // const price = getRealPrice(res)
-            // setTokenPrice(price?.price)
+            setLoading(true)
+            try {
+                const res = await pragma_contract.get_data_median(SPOTENTRY_ENUM)
+                const price = getRealPrice(res)
+                setTokenPrice(price)
+                setLoading(false)
+            } catch (error) {
+                setLoading(false)
+            }
         }
     }
 
     const selectToken = () => {
-        select(token)
+        if (tokenPrice) {
+            select({ ...token, price: tokenPrice })
+        }
     }
 
     const has_changed = useMemo(() => ({
-        pragma_contract, selectedToken
-    }), [pragma_contract, selectedToken])
+        pragma_contract, selectedToken, token
+    }), [pragma_contract, selectedToken, token])
 
     useEffect(() => {
         getTokenPrice()
@@ -290,36 +297,48 @@ const SelectToken = ({ token, select, selectedToken, bgColor, hoverColor }: ISel
                         <Text size="sm" fw={400}>{token?.name}</Text>
                     </Stack>
                 </Group>
-                <Text size='sm' fw={500}>
-                    ${formatNumberInternational(tokenPrice)}
-                </Text>
+                {
+                    loading ? <Skeleton height={10} width={40} /> : null
+                }
+                {
+                    tokenPrice ? (
+                        <Text size='sm' fw={500}>
+                            ${formatNumberInternational(tokenPrice?.price)}
+                        </Text>
+                    ) : null
+                }
             </Group>
         </Paper>
     )
 }
 
 const SelectTokenBtn = ({ token, select, selectedToken, bgColor, hoverColor }: ISelectAsset) => {
-    const { colorScheme } = useMantineColorScheme()
     const { pragma_contract } = useTokenKitContext()
 
     const [tokenPrice, setTokenPrice] = useState<null | any>(null)
     const [_loading, setLoading] = useState(false)
 
     const getTokenPrice = async () => {
-        setLoading(true)
-        if (pragma_contract) {
+        if (pragma_contract && token?.pair_id !== '-' && token?.pair_id !== '' && token?.pair_id !== 'N/A') {
             const SPOTENTRY_ENUM = new CairoCustomEnum({
                 SpotEntry: token?.pair_id
             })
-            const res = await pragma_contract.get_data_median(SPOTENTRY_ENUM)
-            // const price = getRealPrice(res)
-            // setTokenPrice(price?.price)
+            setLoading(true)
+            try {
+                const res = await pragma_contract.get_data_median(SPOTENTRY_ENUM)
+                const price = getRealPrice(res)
+                setTokenPrice(price)
+                setLoading(false)
+            } catch (error) {
+                setLoading(false)
+            }
         }
-        setLoading(false)
     }
+
     const selectToken = () => {
-        setTokenPrice(tokenPrice)
-        select(token)
+        if (tokenPrice) {
+            select({ ...token, price: tokenPrice })
+        }
     }
 
     useEffect(() => {

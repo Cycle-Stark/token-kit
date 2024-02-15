@@ -10,24 +10,23 @@ import { IconCheck, IconFilter, IconReload, IconWriting, IconX } from '@tabler/i
 import { UpdateTokenForm } from './forms';
 import { useTokenKitContext } from '../providers/providerUtils';
 import { useForm } from '@mantine/form';
+import { useLiveQuery } from 'dexie-react-hooks'
 
-interface ITokensTable {
-    DataTable: React.ReactNode
-}
 
 const TokensTable = (props: any) => {
     const { reloadTokensFromContract, loadingTokens } = useTokenKitContext()
-
     const { DataTable } = props
+
+    const [page, setPage] = useState(1)
+    
+    
     const [tokens, setTokens] = useState<IToken[]>([])
     const [token, setToken] = useState<IToken>()
     const [opened, { open, close }] = useDisclosure(false)
-
-    // const [searchedToken, setSearchedToken] = useDebouncedState('', 500);
-    const [totalTokens, setTotalTokens] = useState<number>(0)
-    const [page, setPage] = useState(1)
-
+    
     const tokensPerPage = 25
+    const totalTokens = useLiveQuery(() => db.tokens.count())
+    const have_tokens_changed = useLiveQuery(() => db.tokens.toArray())
 
     const filterForm = useForm({
         initialValues: {
@@ -38,29 +37,19 @@ const TokensTable = (props: any) => {
         }
     })
 
-    // const filterTokens = () => {
-    //     const filteredTokens = tokens?.filter((token: IToken) => {
-    //         const regex = new RegExp(filterForm.values.searchedToken, 'gi');
-    //         return token.symbol.match(regex) || token.name.match(regex) || token.address.match(regex)
-    //     })
-    //     return filteredTokens
-    // }
-
-    const loadTokensFromDB = async () => {
-        const tot_tokens = await db.tokens.count()
-        setTotalTokens(tot_tokens)
+    async function loadTokensFromDB() {
         const limit = tokensPerPage;
         const offset = (page - 1) * tokensPerPage;
 
-        const searchTermTrimmedZeroes = removeTrailingZeros(filterForm.values.searchedToken)
-        // const regexString = `(${searchTermTrimmedZeroes})`;
-        // const regex = new RegExp(regexString, 'gi');
-        const regexString = searchTermTrimmedZeroes.split('').join('[\\w\\s]*');
-        const regex = new RegExp(`(${regexString}[\\w\\s]*)`, 'gi');
+        const regex = new RegExp(`(${filterForm.values.searchedToken})`, 'gi');
+
+        const addressSearchTerm = removeTrailingZeros(filterForm.values.searchedToken)
+        const addressRegex = new RegExp(`(${addressSearchTerm})`, 'gi');
+
         const filteredTokens = await db.tokens
             .filter((token: IToken) => {
                 const matched =
-                    token.symbol.match(regex) || token.name.match(regex) || removeTrailingZeros(token.address).match(regex);
+                    token.symbol.match(regex) || token.name.match(regex) || removeTrailingZeros(token.address).match(addressRegex);
                 return matched ? true : false;
             })
             .filter((token: IToken) => {
@@ -107,11 +96,12 @@ const TokensTable = (props: any) => {
 
     const reloadTokens = () => {
         reloadTokensFromContract && reloadTokensFromContract()
-        loadTokensFromDB()
+        // loadTokensFromDB()
     }
 
     const sortTokens = () => {
-        return tokens.sort((a: IToken, b: IToken) => {
+        const _tokens: any = tokens
+        return _tokens?.sort((a: IToken, b: IToken) => {
             // Custom comparator for sorting
             if (a.verified && a.common && !b.verified) {
                 return -1; // a comes first if a is verified and common, and b is not verified
@@ -126,13 +116,12 @@ const TokensTable = (props: any) => {
                 // If both are verified but have different common properties, prioritize the one with common
                 return a.common ? -1 : 1;
             }
-        });
+        }) ?? []
     };
-
 
     useEffect(() => {
         loadTokensFromDB()
-    }, [page, loadingTokens])
+    }, [have_tokens_changed])
 
     return (
         <Stack>
