@@ -6,10 +6,12 @@ import pragma_abi from './../assets/pragmaabi.json'
 
 
 export const TOKEN_KIT_ABI = token_kit_abi
-export const TOKEN_KIT_CONTRACT_ADDRESS = "0x72fccd711f5a27e50b48d56514717847b45ab3620a517cd9cad61ded3b5895d"
+export const TOKEN_KIT_CONTRACT_ADDRESS_TESTNET = "0x72fccd711f5a27e50b48d56514717847b45ab3620a517cd9cad61ded3b5895d"
+export const TOKEN_KIT_CONTRACT_ADDRESS_MAINNET = "0x72fccd711f5a27e50b48d56514717847b45ab3620a517cd9cad61ded3b5895d"
 
 export const PRAGMA_ABI = pragma_abi
-export const PRAGMA_CONTRACT_ADDRESS = "0x06df335982dddce41008e4c03f2546fa27276567b5274c7d0c1262f3c2b5d167"	
+export const PRAGMA_CONTRACT_ADDRESS_TESTNET = "0x06df335982dddce41008e4c03f2546fa27276567b5274c7d0c1262f3c2b5d167"	
+export const PRAGMA_CONTRACT_ADDRESS_MAINNET = "0x2a85bd616f912537c50a49a4076db02c00b29b2cdc8a197ce92ed1837fa875b"	
 
 export function isDarkMode(colorscheme: any): boolean {
     return colorscheme === 'dark' ? true : false

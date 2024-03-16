@@ -1530,9 +1530,11 @@ var pragmaabi_default = [
 
 // src/configs/utils.ts
 var TOKEN_KIT_ABI = token_kit_abi_default;
-var TOKEN_KIT_CONTRACT_ADDRESS = "0x72fccd711f5a27e50b48d56514717847b45ab3620a517cd9cad61ded3b5895d";
+var TOKEN_KIT_CONTRACT_ADDRESS_TESTNET = "0x72fccd711f5a27e50b48d56514717847b45ab3620a517cd9cad61ded3b5895d";
+var TOKEN_KIT_CONTRACT_ADDRESS_MAINNET = "0x72fccd711f5a27e50b48d56514717847b45ab3620a517cd9cad61ded3b5895d";
 var PRAGMA_ABI = pragmaabi_default;
-var PRAGMA_CONTRACT_ADDRESS = "0x06df335982dddce41008e4c03f2546fa27276567b5274c7d0c1262f3c2b5d167";
+var PRAGMA_CONTRACT_ADDRESS_TESTNET = "0x06df335982dddce41008e4c03f2546fa27276567b5274c7d0c1262f3c2b5d167";
+var PRAGMA_CONTRACT_ADDRESS_MAINNET = "0x2a85bd616f912537c50a49a4076db02c00b29b2cdc8a197ce92ed1837fa875b";
 function formatNumberInternational(number) {
   const DECIMALS = 4;
   if (typeof Intl.NumberFormat === "function") {
@@ -1611,6 +1613,8 @@ var import_dexie = __toESM(require("dexie"));
 var TokenKitDBDexie = class extends import_dexie.default {
   tokens;
   info;
+  mainnet_tokens;
+  mainnet_info;
   constructor() {
     super("TokenKitDB");
     this.version(1).stores({
@@ -1621,6 +1625,10 @@ var TokenKitDBDexie = class extends import_dexie.default {
     });
     this.version(3).stores({
       info: "++id, name, tokens_count, tokens_version"
+    });
+    this.version(4).stores({
+      mainnet_tokens: "++id, name, symbol, decimals, address, verified, public, common, pair_id, [verified+common], [verified+public], [verified+common+public]",
+      mainnet_info: "++id, name, tokens_count, tokens_version"
     });
   }
 };
@@ -1635,10 +1643,7 @@ var initialData = {
   address: null,
   connection: null,
   handleConnetDisconnectWalletBtnClick: null,
-  openCloseModal: null,
-  modalOpen: false,
-  selectTokenFunc: null,
-  selectedToken: null,
+  network: null,
   reloadTokensFromContract: null,
   loadingTokens: false
 };
@@ -1648,22 +1653,20 @@ var useTokenKitContext = () => {
 };
 
 // src/providers/tokenkitprovider.tsx
-var TokenKitProvider = ({ children }) => {
+var TokenKitProvider = ({ children, nodeUrl, network }) => {
   const [contract, setContract] = (0, import_react2.useState)();
   const [pragma_contract, setPragmaContract] = (0, import_react2.useState)();
   const [connection, setConnection] = (0, import_react2.useState)();
   const [account, setAccount] = (0, import_react2.useState)();
   const [address, setAddress] = (0, import_react2.useState)("");
-  const [modalOpen, setModalOpen] = (0, import_react2.useState)(false);
-  const [selectedToken, setselectedToken] = (0, import_react2.useState)();
   const [loading, setLoading] = (0, import_react2.useState)(false);
   const connectWallet = async () => {
     try {
-      let provider = new import_starknet2.RpcProvider({ nodeUrl: "https://starknet-goerli.infura.io/v3/958e1b411a40480eacb8c0f5d640a8ec" });
+      let provider = new import_starknet2.RpcProvider({ nodeUrl });
       const connection2 = await (0, import_starknetkit.connect)({
         webWalletUrl: "https://web.argent.xyz",
         dappName: "Token Kit",
-        modalMode: "alwaysAsk",
+        modalMode: "neverAsk",
         provider
       });
       if (connection2 && connection2?.wallet) {
@@ -1681,7 +1684,7 @@ var TokenKitProvider = ({ children }) => {
     setAddress("");
   };
   const openConfirmDisconnectModal = () => import_modals.modals.openConfirmModal({
-    title: "Please confirm your action",
+    title: "You about to disconnect your wallet!",
     centered: true,
     radius: "md",
     children: /* @__PURE__ */ import_react2.default.createElement(import_core.Text, { size: "sm" }, "Are you sure you want to disconnect your account?"),
@@ -1694,14 +1697,25 @@ var TokenKitProvider = ({ children }) => {
   });
   const makeContractConnection = () => {
     try {
-      let provider = new import_starknet2.RpcProvider({ nodeUrl: "https://starknet-goerli.infura.io/v3/958e1b411a40480eacb8c0f5d640a8ec" });
-      let pragma_contract2 = new import_starknet2.Contract(PRAGMA_ABI, PRAGMA_CONTRACT_ADDRESS, provider);
-      setPragmaContract(pragma_contract2);
-      let contract2 = new import_starknet2.Contract(TOKEN_KIT_ABI, TOKEN_KIT_CONTRACT_ADDRESS, provider);
-      if (account) {
-        contract2 = new import_starknet2.Contract(TOKEN_KIT_ABI, TOKEN_KIT_CONTRACT_ADDRESS, account);
+      if (network === "SN_GOERLI") {
+        let provider = new import_starknet2.RpcProvider({ nodeUrl });
+        let pragma_contract2 = new import_starknet2.Contract(PRAGMA_ABI, PRAGMA_CONTRACT_ADDRESS_TESTNET, provider);
+        setPragmaContract(pragma_contract2);
+        let contract2 = new import_starknet2.Contract(TOKEN_KIT_ABI, TOKEN_KIT_CONTRACT_ADDRESS_TESTNET, provider);
+        if (account) {
+          contract2 = new import_starknet2.Contract(TOKEN_KIT_ABI, TOKEN_KIT_CONTRACT_ADDRESS_TESTNET, account);
+        }
+        setContract(contract2);
+      } else {
+        let provider = new import_starknet2.RpcProvider({ nodeUrl });
+        let pragma_contract2 = new import_starknet2.Contract(PRAGMA_ABI, PRAGMA_CONTRACT_ADDRESS_MAINNET, provider);
+        setPragmaContract(pragma_contract2);
+        let contract2 = new import_starknet2.Contract(TOKEN_KIT_ABI, TOKEN_KIT_CONTRACT_ADDRESS_MAINNET, provider);
+        if (account) {
+          contract2 = new import_starknet2.Contract(TOKEN_KIT_ABI, TOKEN_KIT_CONTRACT_ADDRESS_MAINNET, account);
+        }
+        setContract(contract2);
       }
-      setContract(contract2);
     } catch (error) {
     }
   };
@@ -1711,13 +1725,6 @@ var TokenKitProvider = ({ children }) => {
     } else {
       openConfirmDisconnectModal();
     }
-  };
-  const openCloseModal = (open) => {
-    setModalOpen(open);
-  };
-  const selectTokenFunc = (token, func) => {
-    setselectedToken(token);
-    func(token);
   };
   const loadTokens = async (page) => {
     try {
@@ -1757,29 +1764,21 @@ var TokenKitProvider = ({ children }) => {
           ...formated_token
         };
       });
-      db.tokens.clear();
-      db.tokens.bulkPut(combinedTokens).then((res) => {
-        console.log("Tokens saved the items successfully");
-      }).catch((error) => {
-        console.log("Error: ", error);
-      });
+      if (network === "SN_GOERLI") {
+        db.tokens.clear();
+        db.tokens.bulkPut(combinedTokens).then((res) => {
+        }).catch((error) => {
+        });
+      }
+      if (network === "SN_MAIN") {
+        db.mainnet_tokens.clear();
+        db.mainnet_tokens.bulkPut(combinedTokens).then((res) => {
+        }).catch((error) => {
+        });
+      }
       setLoading(false);
     } catch (error) {
       console.log("Error: ", error);
-    }
-  };
-  const getContractTokensInfo = async () => {
-    try {
-      if (contract) {
-        const totalTokens = await contract.get_tokens_count();
-        const noOfTokens = new import_bignumber2.default(totalTokens).toNumber();
-        const dbTokensCount = await db.tokens.count();
-        if (dbTokensCount !== noOfTokens) {
-          actualLoadTokens(noOfTokens);
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching contract tokens information:", error);
     }
   };
   const checkAndReloadTokensForVersion = async () => {
@@ -1789,24 +1788,48 @@ var TokenKitProvider = ({ children }) => {
         const totalTokensReadable = new import_bignumber2.default(totalTokens).toNumber();
         const tokens_version = await contract.get_tokens_version();
         const readable_tokens_version = new import_bignumber2.default(tokens_version).toNumber();
-        const info = await db.info.get(1);
-        if (!info) {
-          db.info.put({
-            id: 1,
-            tokens_count: totalTokensReadable,
-            name: "main",
-            tokens_version: readable_tokens_version
-          });
-          actualLoadTokens(totalTokensReadable);
-        } else {
-          if (info?.tokens_version !== readable_tokens_version) {
-            actualLoadTokens(totalTokensReadable);
+        if (network === "SN_GOERLI") {
+          const info = await db.info.get(1);
+          if (!info) {
             db.info.put({
               id: 1,
               tokens_count: totalTokensReadable,
               name: "main",
               tokens_version: readable_tokens_version
             });
+            actualLoadTokens(totalTokensReadable);
+          } else {
+            if (info?.tokens_version !== readable_tokens_version) {
+              actualLoadTokens(totalTokensReadable);
+              db.info.put({
+                id: 1,
+                tokens_count: totalTokensReadable,
+                name: "main",
+                tokens_version: readable_tokens_version
+              });
+            }
+          }
+        }
+        if (network === "SN_MAIN") {
+          const mainnet_info = await db.mainnet_info.get(1);
+          if (!mainnet_info) {
+            db.mainnet_info.put({
+              id: 1,
+              tokens_count: totalTokensReadable,
+              name: "main",
+              tokens_version: readable_tokens_version
+            });
+            actualLoadTokens(totalTokensReadable);
+          } else {
+            if (mainnet_info?.tokens_version !== readable_tokens_version) {
+              actualLoadTokens(totalTokensReadable);
+              db.mainnet_info.put({
+                id: 1,
+                tokens_count: totalTokensReadable,
+                name: "main",
+                tokens_version: readable_tokens_version
+              });
+            }
           }
         }
       }
@@ -1820,22 +1843,21 @@ var TokenKitProvider = ({ children }) => {
     account,
     address,
     connection,
+    network,
     handleConnetDisconnectWalletBtnClick,
-    modalOpen,
-    openCloseModal,
-    selectTokenFunc,
-    selectedToken,
     reloadTokensFromContract: checkAndReloadTokensForVersion,
     loadingTokens: loading
-  }), [account, contract, address, pragma_contract, modalOpen]);
+  }), [account, contract, address, pragma_contract]);
   (0, import_react2.useEffect)(() => {
     makeContractConnection();
     checkAndReloadTokensForVersion();
   }, [account]);
   (0, import_react2.useEffect)(() => {
-    getContractTokensInfo();
     checkAndReloadTokensForVersion();
   }, [contract]);
+  (0, import_react2.useEffect)(() => {
+    connectWallet();
+  }, []);
   return /* @__PURE__ */ import_react2.default.createElement(TokenKitContext.Provider, { value: contextValue }, children);
 };
 var tokenkitprovider_default = TokenKitProvider;
@@ -1846,13 +1868,29 @@ var import_styles2 = require("@mantine/notifications/styles.css");
 var import_styles_layer = require("@mantine/core/styles.layer.css");
 var import_styles_layer2 = require("mantine-datatable/styles.layer.css");
 var TokenKitWrapper = (props) => {
-  const { children, usingMantine, theme, primaryColor } = props;
+  const { children, usingMantine, theme, primaryColor, network, nodeUrl } = props;
   if (usingMantine) {
-    return /* @__PURE__ */ import_react3.default.createElement(import_react3.default.Fragment, null, /* @__PURE__ */ import_react3.default.createElement(tokenkitprovider_default, null, children));
+    return /* @__PURE__ */ import_react3.default.createElement(import_react3.default.Fragment, null, /* @__PURE__ */ import_react3.default.createElement("div", { className: "tokenkit" }, /* @__PURE__ */ import_react3.default.createElement(
+      import_core2.MantineProvider,
+      {
+        forceColorScheme: theme,
+        theme: {
+          primaryColor
+        }
+      },
+      /* @__PURE__ */ import_react3.default.createElement(tokenkitprovider_default, { nodeUrl, network }, children)
+    )));
   }
-  return /* @__PURE__ */ import_react3.default.createElement(import_core2.MantineProvider, { forceColorScheme: theme, theme: {
-    primaryColor
-  }, withCssVariables: true, cssVariablesSelector: ".tokenkit", classNamesPrefix: "tokenkit" }, /* @__PURE__ */ import_react3.default.createElement("div", { className: "tokenkit" }, /* @__PURE__ */ import_react3.default.createElement(import_modals2.ModalsProvider, null, /* @__PURE__ */ import_react3.default.createElement(import_notifications.Notifications, null), /* @__PURE__ */ import_react3.default.createElement(tokenkitprovider_default, null, children))));
+  return /* @__PURE__ */ import_react3.default.createElement("div", { className: "tokenkit" }, /* @__PURE__ */ import_react3.default.createElement(
+    import_core2.MantineProvider,
+    {
+      forceColorScheme: theme,
+      theme: {
+        primaryColor
+      }
+    },
+    /* @__PURE__ */ import_react3.default.createElement(import_modals2.ModalsProvider, null, /* @__PURE__ */ import_react3.default.createElement(import_notifications.Notifications, null), /* @__PURE__ */ import_react3.default.createElement(tokenkitprovider_default, { nodeUrl, network }, children))
+  ));
 };
 var wrapper_default = TokenKitWrapper;
 
@@ -1866,7 +1904,7 @@ var import_hooks = require("@mantine/hooks");
 var import_modals3 = require("@mantine/modals");
 var import_dexie_react_hooks = require("dexie-react-hooks");
 var SelectTokenModal = ({ children, selectedToken, callBackFunc, themeObject }) => {
-  const { reloadTokensFromContract, loadingTokens } = useTokenKitContext();
+  const { loadingTokens, network } = useTokenKitContext();
   const [opened, { open, close }] = (0, import_hooks.useDisclosure)(false);
   const [totalTokens, setTotalTokens] = (0, import_react4.useState)(0);
   const [tokens, setTokens] = (0, import_react4.useState)([]);
@@ -1880,7 +1918,7 @@ var SelectTokenModal = ({ children, selectedToken, callBackFunc, themeObject }) 
     close();
   };
   const loadCommonTokens = async () => {
-    const common_tks = await db.tokens.filter((t) => (t.common ?? false) && (t.verified ?? false) && (t.public ?? false)).toArray();
+    const common_tks = await db.tokens.filter((t) => (t.common ?? false) && (t.public ?? false)).toArray();
     setCommonTokens(common_tks);
   };
   const loadTokensFromDB = async () => {
@@ -1888,8 +1926,9 @@ var SelectTokenModal = ({ children, selectedToken, callBackFunc, themeObject }) 
     setTotalTokens(_totalTokens);
     const limit = tokensPerPage;
     const offset = (page - 1) * tokensPerPage;
-    const regex = new RegExp(`(${searchedToken})`, "gi");
-    const addressSearchTerm = removeTrailingZeros(searchedToken);
+    const trimmedSearchedToken = searchedToken.trim();
+    const regex = new RegExp(`(${trimmedSearchedToken})`, "gi");
+    const addressSearchTerm = removeTrailingZeros(trimmedSearchedToken);
     const addressRegex = new RegExp(`(${addressSearchTerm})`, "gi");
     const filteredTokens = await db.tokens.filter((token) => {
       const matched = token.symbol.match(regex) || token.name.match(regex) || removeTrailingZeros(token.address).match(addressRegex);
@@ -1951,7 +1990,10 @@ var SelectTokenModal = ({ children, selectedToken, callBackFunc, themeObject }) 
       background: themeObject.modalBackground
     } }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Box, { h: `${HEADER_HEIGHT}px`, style: {
       background: themeObject.headerFooterBackground
-    } }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Group, { p: "md", justify: "space-between", align: "center", className: "w-100" }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Title, { order: 2, fw: 500 }, "Select Token"), /* @__PURE__ */ import_react5.default.createElement(import_core3.ActionIcon, { variant: "light", onClick: close }, /* @__PURE__ */ import_react5.default.createElement(import_icons_react.IconX, null))), /* @__PURE__ */ import_react5.default.createElement(import_core3.Box, { px: "md", h: `${HEADER_HEIGHT}px` }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Stack, { h: `${HEADER_HEIGHT}px`, gap: 6 }, /* @__PURE__ */ import_react5.default.createElement(
+    } }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Group, { p: "md", justify: "space-between", align: "center", className: "w-100" }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Title, { order: 2, fw: 500 }, "Select Token"), /* @__PURE__ */ import_react5.default.createElement(import_core3.Group, null, /* @__PURE__ */ import_react5.default.createElement(import_core3.Box, { py: "6px", px: "10px", style: {
+      background: themeObject.tokenHoverColor,
+      borderRadius: "10px"
+    } }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Text, { size: "xs", c: themeObject.textColor }, network === "SN_GOERLI" ? "Testnet" : null, network === "SN_MAIN" ? "Mainnet" : null)), /* @__PURE__ */ import_react5.default.createElement(import_core3.ActionIcon, { variant: "transparent", onClick: close }, /* @__PURE__ */ import_react5.default.createElement(import_icons_react.IconX, { color: themeObject.textColor })))), /* @__PURE__ */ import_react5.default.createElement(import_core3.Box, { px: "md", h: `${HEADER_HEIGHT}px` }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Stack, { h: `${HEADER_HEIGHT}px`, gap: 6 }, /* @__PURE__ */ import_react5.default.createElement(
       import_core3.Input,
       {
         type: "search",
@@ -1970,10 +2012,9 @@ var SelectTokenModal = ({ children, selectedToken, callBackFunc, themeObject }) 
             "--_input-color": themeObject.searchTextColor
           }
         },
-        rightSectionPointerEvents: "all",
-        rightSection: /* @__PURE__ */ import_react5.default.createElement(import_core3.ActionIcon, { onClick: () => setSearchedToken(""), variant: "light" }, " ", /* @__PURE__ */ import_react5.default.createElement(import_icons_react.IconX, { color: themeObject.searchTextColor }), " ")
+        rightSectionPointerEvents: "all"
       }
-    ), /* @__PURE__ */ import_react5.default.createElement(import_core3.Group, { justify: "space-between", align: "center" }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Title, { order: 5, mb: "xs" }, "Common tokens"), /* @__PURE__ */ import_react5.default.createElement(import_core3.Button, { variant: "light", onClick: reloadTokensFromContract, size: "xs", radius: "md", leftSection: /* @__PURE__ */ import_react5.default.createElement(import_icons_react.IconReload, { size: "16px" }) }, "Refresh")), /* @__PURE__ */ import_react5.default.createElement(import_core3.Box, { style: { overflow: "hidden", maxWidth: "100%" } }, commonTokens?.length === 0 ? /* @__PURE__ */ import_react5.default.createElement(import_core3.Text, { fw: 500, ta: "center", c: themeObject.textColor }, "No listed common tokens.") : null, /* @__PURE__ */ import_react5.default.createElement(import_core3.ScrollArea, { scrollbarSize: 10, pb: "10px", type: "always" }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Group, { display: "flex", style: { flexWrap: "nowrap" }, p: "6px", gap: 10 }, commonTokens?.map((item, i) => /* @__PURE__ */ import_react5.default.createElement(import_core3.Box, { key: `token_s_${i}`, w: "fit-content" }, /* @__PURE__ */ import_react5.default.createElement(
+    ), /* @__PURE__ */ import_react5.default.createElement(import_core3.Group, { justify: "space-between", align: "center" }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Title, { order: 5, mb: "xs" }, "Common tokens")), /* @__PURE__ */ import_react5.default.createElement(import_core3.Box, { style: { overflow: "hidden", maxWidth: "100%" } }, commonTokens?.length === 0 ? /* @__PURE__ */ import_react5.default.createElement(import_core3.Text, { fw: 500, ta: "center", c: themeObject.textColor }, "No common tokens.") : null, /* @__PURE__ */ import_react5.default.createElement(import_core3.ScrollArea, { scrollbarSize: 10, pb: "10px", type: "always" }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Group, { display: "flex", style: { flexWrap: "nowrap" }, p: "6px", gap: 10 }, commonTokens?.map((item, i) => /* @__PURE__ */ import_react5.default.createElement(import_core3.Box, { key: `token_s_${i}`, w: "fit-content" }, /* @__PURE__ */ import_react5.default.createElement(
       SelectTokenBtn,
       {
         token: item,
@@ -1985,7 +2026,7 @@ var SelectTokenModal = ({ children, selectedToken, callBackFunc, themeObject }) 
     ))))))))), /* @__PURE__ */ import_react5.default.createElement(import_core3.Box, { style: {
       height: `calc(100% - ${HEADER_HEIGHT}px - 60px)`,
       background: themeObject.modalBackground
-    } }, /* @__PURE__ */ import_react5.default.createElement(import_core3.ScrollArea, { className: "h-100" }, tokens?.length === 0 ? /* @__PURE__ */ import_react5.default.createElement(import_core3.Box, { h: 300 }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Center, { h: 300 }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Text, { fw: 500, ta: "center", maw: "80%", c: themeObject.textColor }, "No tokens have been listed yet! be the first to list ", /* @__PURE__ */ import_react5.default.createElement(import_core3.Anchor, { href: "https://tokenkit-gamma.vercel.app/", target: "_blank" }, "here.")))) : null, /* @__PURE__ */ import_react5.default.createElement(import_core3.Stack, { p: "xs", gap: 0 }, sortTokens()?.map((item, i) => /* @__PURE__ */ import_react5.default.createElement(
+    } }, /* @__PURE__ */ import_react5.default.createElement(import_core3.ScrollArea, { className: "h-100" }, tokens?.length === 0 ? /* @__PURE__ */ import_react5.default.createElement(import_core3.Box, { h: 300 }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Center, { h: 300 }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Text, { fw: 500, ta: "center", maw: "80%", c: themeObject.textColor }, "Tokens Not Found ", /* @__PURE__ */ import_react5.default.createElement(import_core3.Anchor, { href: "https://tokenkit-gamma.vercel.app/", target: "_blank" }, "list here.")))) : null, /* @__PURE__ */ import_react5.default.createElement(import_core3.Stack, { p: "xs", gap: 0 }, sortTokens()?.map((item, i) => /* @__PURE__ */ import_react5.default.createElement(
       SelectToken,
       {
         key: `dfd_${i}`,
@@ -1998,34 +2039,26 @@ var SelectTokenModal = ({ children, selectedToken, callBackFunc, themeObject }) 
     ))))), /* @__PURE__ */ import_react5.default.createElement(import_core3.Box, { px: "md", style: (theme) => ({
       height: `60px`,
       background: themeObject.headerFooterBackground
-    }) }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Group, { style: { height: "100%" }, align: "center", justify: "space-between" }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Anchor, { href: "https://tokenkit-gamma.vercel.app", size: "sm" }, "Add New"), /* @__PURE__ */ import_react5.default.createElement(import_core3.Pagination, { variant: "light", value: page, radius: "md", onChange: setPage, total: Math.ceil(totalTokens / tokensPerPage), size: "sm" }))))
+    }) }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Group, { style: { height: "100%" }, align: "center", justify: "space-between" }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Anchor, { href: "https://tokenkit-gamma.vercel.app/list-token", size: "xs", fw: 500, c: themeObject.textColor }, "List New Token"), /* @__PURE__ */ import_react5.default.createElement(import_core3.Pagination, { variant: "light", value: page, radius: "md", onChange: setPage, total: Math.ceil(totalTokens / tokensPerPage), size: "sm" }))))
   ));
 };
 var SelectToken = ({ token, select, selectedToken, bgColor, hoverColor }) => {
   const { pragma_contract } = useTokenKitContext();
   const [loading, setLoading] = (0, import_react4.useState)(false);
   const [tokenPrice, setTokenPrice] = (0, import_react4.useState)(null);
+  const { hovered, ref } = (0, import_hooks.useHover)();
   const getTokenPrice = async () => {
-    setTokenPrice(null);
-    if (pragma_contract && token?.pair_id !== "-" && token?.pair_id !== "" && token?.pair_id !== "N/A") {
-      const SPOTENTRY_ENUM = new import_starknet3.CairoCustomEnum({
-        SpotEntry: token?.pair_id
-      });
-      setLoading(true);
-      try {
-        const res = await pragma_contract.get_data_median(SPOTENTRY_ENUM);
-        const price = getRealPrice(res);
-        setTokenPrice(price);
-        setLoading(false);
-      } catch (error) {
-        setLoading(false);
-      }
-    }
   };
   const selectToken = () => {
-    if (tokenPrice) {
-      select({ ...token, price: tokenPrice });
+    select({ ...token, price: tokenPrice });
+  };
+  const getImageUrl = () => {
+    if (token?.verified && token?.common) {
+      return "https://i.postimg.cc/Qx8RZ8qD/verified.png";
+    } else if (token?.verified && !token?.common) {
+      return "https://i.postimg.cc/d3BpZpwg/casual-life-3d-check-mark-side-view-pink.png";
     }
+    return null;
   };
   const has_changed = (0, import_react4.useMemo)(() => ({
     pragma_contract,
@@ -2035,16 +2068,17 @@ var SelectToken = ({ token, select, selectedToken, bgColor, hoverColor }) => {
   (0, import_react4.useEffect)(() => {
     getTokenPrice();
   }, [has_changed]);
-  return /* @__PURE__ */ import_react5.default.createElement(import_core3.Paper, { py: "xs", bg: selectedToken?.address === token?.address ? hoverColor : bgColor, radius: "md", px: "md", style: {
-    backgroundColor: `${selectedToken?.address === token?.address ? hoverColor : bgColor} !important`,
+  return /* @__PURE__ */ import_react5.default.createElement(import_core3.Paper, { ref, py: "xs", radius: "md", px: "md", style: {
+    background: hovered ? hoverColor : `${selectedToken?.address === token?.address ? hoverColor : "transparent"}`,
     cursor: "pointer",
     pointerEvents: selectedToken?.address === token?.address ? "none" : "all"
-  }, onClick: () => selectToken() }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Group, { justify: "space-between", align: "center" }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Group, { align: "center" }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Avatar, { size: "sm", src: token?.icon, variant: "light", color: "pink" }), /* @__PURE__ */ import_react5.default.createElement(import_core3.Stack, { gap: -10 }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Text, { size: "md" }, /* @__PURE__ */ import_react5.default.createElement("b", null, token?.symbol)), /* @__PURE__ */ import_react5.default.createElement(import_core3.Text, { size: "sm", fw: 400 }, token?.name))), loading ? /* @__PURE__ */ import_react5.default.createElement(import_core3.Skeleton, { height: 10, width: 40 }) : null, tokenPrice ? /* @__PURE__ */ import_react5.default.createElement(import_core3.Text, { size: "sm", fw: 500 }, "$", formatNumberInternational(tokenPrice?.price)) : null));
+  }, onClick: () => selectToken() }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Group, { justify: "space-between", align: "center" }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Group, { align: "center" }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Avatar, { size: "sm", src: token?.icon, variant: "light", bg: bgColor, tt: "capitalize" }, limitChars(token?.symbol ?? "", 2, false)), /* @__PURE__ */ import_react5.default.createElement(import_core3.Stack, { gap: -10 }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Group, { gap: 3 }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Text, { size: "sm" }, token?.symbol), getImageUrl() ? /* @__PURE__ */ import_react5.default.createElement(import_core3.Tooltip, { label: "This token is verified", position: "bottom" }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Image, { src: getImageUrl(), h: "14px", w: "14px" })) : null), /* @__PURE__ */ import_react5.default.createElement(import_core3.Text, { size: "xs", fw: 300 }, token?.name))), loading ? /* @__PURE__ */ import_react5.default.createElement(import_core3.Skeleton, { height: 10, width: 40 }) : null, tokenPrice ? /* @__PURE__ */ import_react5.default.createElement(import_core3.Text, { size: "xs", fw: 300 }, "$", formatNumberInternational(tokenPrice?.price)) : null));
 };
 var SelectTokenBtn = ({ token, select, selectedToken, bgColor, hoverColor }) => {
   const { pragma_contract } = useTokenKitContext();
   const [tokenPrice, setTokenPrice] = (0, import_react4.useState)(null);
   const [_loading, setLoading] = (0, import_react4.useState)(false);
+  const { hovered, ref } = (0, import_hooks.useHover)();
   const getTokenPrice = async () => {
     if (pragma_contract && token?.pair_id !== "-" && token?.pair_id !== "" && token?.pair_id !== "N/A") {
       const SPOTENTRY_ENUM = new import_starknet3.CairoCustomEnum({
@@ -2062,22 +2096,19 @@ var SelectTokenBtn = ({ token, select, selectedToken, bgColor, hoverColor }) => 
     }
   };
   const selectToken = () => {
-    if (tokenPrice) {
-      select({ ...token, price: tokenPrice });
-    }
+    select({ ...token, price: tokenPrice });
   };
   (0, import_react4.useEffect)(() => {
     getTokenPrice();
   }, [pragma_contract, selectedToken]);
-  return /* @__PURE__ */ import_react5.default.createElement(import_core3.Paper, { bg: selectedToken?.address === token?.address ? hoverColor : bgColor, style: {
-    background: `${selectedToken?.address === token?.address ? hoverColor : bgColor} !important`,
-    border: "none",
+  return /* @__PURE__ */ import_react5.default.createElement(import_core3.Paper, { ref, py: "4px", px: "12px", style: {
+    background: hovered ? hoverColor : `${selectedToken?.address === token?.address ? hoverColor : "transparent"}`,
+    border: `2px solid ${hoverColor}`,
     borderRadius: "10px",
     pointerEvents: selectedToken?.address === token?.address ? "none" : "all",
-    padding: "4px 6px",
     cursor: "pointer",
     width: "fit-content"
-  }, onClick: () => selectToken() }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Group, { gap: 10, wrap: "nowrap" }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Avatar, { size: "sm", src: token?.icon }), /* @__PURE__ */ import_react5.default.createElement(import_core3.Text, { size: "sm", fw: 500 }, token?.symbol)));
+  }, onClick: () => selectToken() }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Group, { gap: 10, wrap: "nowrap" }, /* @__PURE__ */ import_react5.default.createElement(import_core3.Avatar, { size: "sm", src: token?.icon, bg: bgColor, tt: "capitalize" }, limitChars(token?.symbol ?? "", 2, false)), /* @__PURE__ */ import_react5.default.createElement(import_core3.Text, { size: "sm", fw: 500 }, token?.symbol)));
 };
 var Kit_default = SelectTokenModal;
 

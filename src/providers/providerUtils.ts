@@ -7,10 +7,7 @@ const initialData = {
     address: null as any,
     connection: null as any,
     handleConnetDisconnectWalletBtnClick: null as any,
-    openCloseModal: null as any,
-    modalOpen: false,
-    selectTokenFunc: null as any,
-    selectedToken: null as any,
+    network: null as any,
     reloadTokensFromContract: null as any,
     loadingTokens: false
 }

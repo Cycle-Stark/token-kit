@@ -1,7 +1,7 @@
 import React, { ReactNode, useEffect, useMemo, useState } from 'react'
 import { Contract, RpcProvider } from 'starknet'
 import { connect, disconnect } from 'starknetkit'
-import { PRAGMA_ABI, PRAGMA_CONTRACT_ADDRESS, TOKEN_KIT_ABI, TOKEN_KIT_CONTRACT_ADDRESS, bigintToLongAddress, bigintToShortStr } from '../configs/utils'
+import { PRAGMA_ABI, PRAGMA_CONTRACT_ADDRESS_TESTNET, PRAGMA_CONTRACT_ADDRESS_MAINNET, TOKEN_KIT_ABI, TOKEN_KIT_CONTRACT_ADDRESS_TESTNET, TOKEN_KIT_CONTRACT_ADDRESS_MAINNET, bigintToLongAddress, bigintToShortStr } from '../configs/utils'
 import { modals } from '@mantine/modals'
 import { Text } from '@mantine/core'
 import { IToken } from '../types'
@@ -12,26 +12,26 @@ import { TokenKitContext } from './providerUtils'
 
 interface IAppProvider {
     children: ReactNode
+    nodeUrl: string
+    network: 'SN_MAIN' | 'SN_GOERLI'
 }
 
-const TokenKitProvider = ({ children }: IAppProvider) => {
+const TokenKitProvider = ({ children, nodeUrl, network }: IAppProvider) => {
 
     const [contract, setContract] = useState<null | any>()
     const [pragma_contract, setPragmaContract] = useState<null | any>()
     const [connection, setConnection] = useState<null | any>();
     const [account, setAccount] = useState<null | any>();
     const [address, setAddress] = useState<null | any>("");
-    const [modalOpen, setModalOpen] = useState(false)
-    const [selectedToken, setselectedToken] = useState<IToken>()
     const [loading, setLoading] = useState(false)
 
     const connectWallet = async () => {
         try {
-            let provider = new RpcProvider({ nodeUrl: 'https://starknet-goerli.infura.io/v3/958e1b411a40480eacb8c0f5d640a8ec' })
+            let provider = new RpcProvider({ nodeUrl: nodeUrl })
             const connection: any = await connect({
                 webWalletUrl: "https://web.argent.xyz",
                 dappName: "Token Kit",
-                modalMode: "alwaysAsk",
+                modalMode: "neverAsk",
                 provider: provider
             });
             if (connection && connection?.wallet) {
@@ -53,7 +53,7 @@ const TokenKitProvider = ({ children }: IAppProvider) => {
 
 
     const openConfirmDisconnectModal = () => modals.openConfirmModal({
-        title: 'Please confirm your action',
+        title: 'You about to disconnect your wallet!',
         centered: true,
         radius: "md",
         children: (
@@ -71,17 +71,32 @@ const TokenKitProvider = ({ children }: IAppProvider) => {
 
     const makeContractConnection = () => {
         try {
-            let provider = new RpcProvider({ nodeUrl: 'https://starknet-goerli.infura.io/v3/958e1b411a40480eacb8c0f5d640a8ec' })
+            if (network === 'SN_GOERLI') {
+                let provider = new RpcProvider({ nodeUrl })
 
-            let pragma_contract = new Contract(PRAGMA_ABI, PRAGMA_CONTRACT_ADDRESS, provider)
-            setPragmaContract(pragma_contract)
+                let pragma_contract = new Contract(PRAGMA_ABI, PRAGMA_CONTRACT_ADDRESS_TESTNET, provider)
+                setPragmaContract(pragma_contract)
 
-            let contract = new Contract(TOKEN_KIT_ABI, TOKEN_KIT_CONTRACT_ADDRESS, provider)
+                let contract = new Contract(TOKEN_KIT_ABI, TOKEN_KIT_CONTRACT_ADDRESS_TESTNET, provider)
 
-            if (account) {
-                contract = new Contract(TOKEN_KIT_ABI, TOKEN_KIT_CONTRACT_ADDRESS, account)
+                if (account) {
+                    contract = new Contract(TOKEN_KIT_ABI, TOKEN_KIT_CONTRACT_ADDRESS_TESTNET, account)
+                }
+                setContract(contract)
             }
-            setContract(contract)
+            else {
+                let provider = new RpcProvider({ nodeUrl })
+
+                let pragma_contract = new Contract(PRAGMA_ABI, PRAGMA_CONTRACT_ADDRESS_MAINNET, provider)
+                setPragmaContract(pragma_contract)
+
+                let contract = new Contract(TOKEN_KIT_ABI, TOKEN_KIT_CONTRACT_ADDRESS_MAINNET, provider)
+
+                if (account) {
+                    contract = new Contract(TOKEN_KIT_ABI, TOKEN_KIT_CONTRACT_ADDRESS_MAINNET, account)
+                }
+                setContract(contract)
+            }
         } catch (error) {
 
         }
@@ -94,15 +109,6 @@ const TokenKitProvider = ({ children }: IAppProvider) => {
         else {
             openConfirmDisconnectModal()
         }
-    }
-
-    const openCloseModal = (open: boolean) => {
-        setModalOpen(open)
-    }
-
-    const selectTokenFunc = (token: IToken, func?: any) => {
-        setselectedToken(token)
-        func(token)
     }
 
     const loadTokens = async (page: number) => {
@@ -153,12 +159,22 @@ const TokenKitProvider = ({ children }: IAppProvider) => {
                     ...formated_token
                 })
             });
-            db.tokens.clear()
-            db.tokens.bulkPut(combinedTokens,).then((res: any) => {
-                console.log("Tokens saved the items successfully")
-            }).catch((error: any) => {
-                console.log("Error: ", error)
-            })
+            if (network === 'SN_GOERLI') {
+                db.tokens.clear()
+                db.tokens.bulkPut(combinedTokens,).then((res: any) => {
+                    // console.log("Tokens saved the items successfully")
+                }).catch((error: any) => {
+                    // console.log("Error: ", error)
+                })
+            }
+            if (network === 'SN_MAIN') {
+                db.mainnet_tokens.clear()
+                db.mainnet_tokens.bulkPut(combinedTokens,).then((res: any) => {
+                    // console.log("Tokens saved the items successfully")
+                }).catch((error: any) => {
+                    // console.log("Error: ", error)
+                })
+            }
             setLoading(false)
         }
         catch (error: any) {
@@ -166,65 +182,64 @@ const TokenKitProvider = ({ children }: IAppProvider) => {
         }
     }
 
-    const getContractTokensInfo = async () => {
-        try {
-            if (contract) {
-                const totalTokens = await contract.get_tokens_count();
-                const noOfTokens = new BigNumber(totalTokens).toNumber();
-                const dbTokensCount = await db.tokens.count()
-
-                if (dbTokensCount !== noOfTokens) {
-                    actualLoadTokens(noOfTokens)
-                }
-
-
-            }
-        } catch (error) {
-            console.error("Error fetching contract tokens information:", error);
-        }
-    };
-
-    // const reloadTokensFromContract = async () => {
-    //     try {
-    //         if (contract) {
-    //             const totalTokens = await contract.get_tokens_count();
-    //             const noOfTokens = new BigNumber(totalTokens).toNumber();
-    //             actualLoadTokens(noOfTokens)
-    //         }
-    //     } catch (error) {
-    //         console.error("Error fetching contract tokens information:", error);
-    //     }
-    // }
-
     const checkAndReloadTokensForVersion = async () => {
         try {
             if (contract) {
+
                 const totalTokens = await contract.get_tokens_count();
                 const totalTokensReadable = new BigNumber(totalTokens).toNumber()
 
                 const tokens_version = await contract.get_tokens_version();
                 const readable_tokens_version = new BigNumber(tokens_version).toNumber()
 
-                const info = await db.info.get(1)
+                if (network === 'SN_GOERLI') {
 
-                if (!info) {
-                    db.info.put({
-                        id: 1,
-                        tokens_count: totalTokensReadable,
-                        name: 'main',
-                        tokens_version: readable_tokens_version
-                    })
-                    actualLoadTokens(totalTokensReadable)
-                }
-                else {
-                    if (info?.tokens_version !== readable_tokens_version) {
-                        actualLoadTokens(totalTokensReadable)
+                    const info = await db.info.get(1)
+
+                    if (!info) {
                         db.info.put({
                             id: 1,
                             tokens_count: totalTokensReadable,
                             name: 'main',
                             tokens_version: readable_tokens_version
                         })
+                        actualLoadTokens(totalTokensReadable)
+                    }
+                    else {
+                        if (info?.tokens_version !== readable_tokens_version) {
+                            actualLoadTokens(totalTokensReadable)
+                            db.info.put({
+                                id: 1,
+                                tokens_count: totalTokensReadable,
+                                name: 'main',
+                                tokens_version: readable_tokens_version
+                            })
+                        }
+                    }
+                }
+                if (network === 'SN_MAIN') {
+
+                    const mainnet_info = await db.mainnet_info.get(1)
+
+                    if (!mainnet_info) {
+                        db.mainnet_info.put({
+                            id: 1,
+                            tokens_count: totalTokensReadable,
+                            name: 'main',
+                            tokens_version: readable_tokens_version
+                        })
+                        actualLoadTokens(totalTokensReadable)
+                    }
+                    else {
+                        if (mainnet_info?.tokens_version !== readable_tokens_version) {
+                            actualLoadTokens(totalTokensReadable)
+                            db.mainnet_info.put({
+                                id: 1,
+                                tokens_count: totalTokensReadable,
+                                name: 'main',
+                                tokens_version: readable_tokens_version
+                            })
+                        }
                     }
                 }
             }
@@ -239,14 +254,11 @@ const TokenKitProvider = ({ children }: IAppProvider) => {
         account,
         address,
         connection,
+        network,
         handleConnetDisconnectWalletBtnClick,
-        modalOpen,
-        openCloseModal,
-        selectTokenFunc,
-        selectedToken,
         reloadTokensFromContract: checkAndReloadTokensForVersion,
         loadingTokens: loading
-    }), [account, contract, address, pragma_contract, modalOpen]);
+    }), [account, contract, address, pragma_contract]);
 
     useEffect(() => {
         makeContractConnection()
@@ -254,13 +266,12 @@ const TokenKitProvider = ({ children }: IAppProvider) => {
     }, [account])
 
     useEffect(() => {
-        getContractTokensInfo()
         checkAndReloadTokensForVersion()
     }, [contract])
 
-    // useEffect(() => {
-    //     connectWallet()
-    // }, [])
+    useEffect(() => {
+        connectWallet()
+    }, [])
 
     return (
         <TokenKitContext.Provider value={contextValue}>

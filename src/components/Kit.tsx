@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Modal, Box, Group, Title, ActionIcon, TextInput, Paper, Avatar, Stack, Text, ScrollArea, Pagination, Center, Anchor, Button, Skeleton, Input } from "@mantine/core"
+import { Modal, Box, Group, Title, ActionIcon, Paper, Avatar, Stack, Text, ScrollArea, Pagination, Center, Anchor, Skeleton, Input, Image, Tooltip } from "@mantine/core"
 import React from 'react';
 import { CairoCustomEnum } from 'starknet';
-import { IToken } from '../types';
-import { IconReload, IconX } from '@tabler/icons-react';
+import { IModalThemeObject, IToken } from '../types';
+import { IconX } from '@tabler/icons-react';
 import { useTokenKitContext } from '../providers/providerUtils';
-import { formatNumberInternational, getRealPrice, removeTrailingZeros } from '../configs/utils';
-import { useDebouncedState, useDisclosure } from '@mantine/hooks';
+import { formatNumberInternational, getRealPrice, limitChars, removeTrailingZeros } from '../configs/utils';
+import { useDebouncedState, useDisclosure, useHover } from '@mantine/hooks';
 import { db } from '../configs/db';
 import { modals } from '@mantine/modals';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -15,21 +15,12 @@ interface ISelectTokenModal {
     selectedToken: IToken | undefined
     children: React.ReactNode
     callBackFunc: (token: IToken) => void
-    themeObject: {
-        textColor: string
-        modalBackground: string
-        headerFooterBackground: string
-        searchBorderColor: string
-        searchBackgroundColor: string
-        searchTextColor: string
-        tokenBackgroundColor: string
-        tokenHoverColor: string
-    }
+    themeObject: IModalThemeObject
 }
 
 const SelectTokenModal = ({ children, selectedToken, callBackFunc, themeObject }: ISelectTokenModal) => {
 
-    const { reloadTokensFromContract, loadingTokens } = useTokenKitContext()
+    const { loadingTokens, network } = useTokenKitContext()
 
     const [opened, { open, close }] = useDisclosure(false);
     const [totalTokens, setTotalTokens] = useState(0)
@@ -48,7 +39,7 @@ const SelectTokenModal = ({ children, selectedToken, callBackFunc, themeObject }
     }
 
     const loadCommonTokens = async () => {
-        const common_tks = await db.tokens.filter((t: IToken) => (t.common ?? false) && (t.verified ?? false) && (t.public ?? false)).toArray()
+        const common_tks = await db.tokens.filter((t: IToken) => (t.common ?? false) && (t.public ?? false)).toArray()
         setCommonTokens(common_tks)
     }
 
@@ -58,10 +49,10 @@ const SelectTokenModal = ({ children, selectedToken, callBackFunc, themeObject }
         setTotalTokens(_totalTokens)
         const limit = tokensPerPage;
         const offset = (page - 1) * tokensPerPage;
+        const trimmedSearchedToken = searchedToken.trim()
+        const regex = new RegExp(`(${trimmedSearchedToken})`, 'gi');
 
-        const regex = new RegExp(`(${searchedToken})`, 'gi');
-
-        const addressSearchTerm = removeTrailingZeros(searchedToken)
+        const addressSearchTerm = removeTrailingZeros(trimmedSearchedToken)
         const addressRegex = new RegExp(`(${addressSearchTerm})`, 'gi');
 
         const filteredTokens = await db.tokens
@@ -149,9 +140,20 @@ const SelectTokenModal = ({ children, selectedToken, callBackFunc, themeObject }
                     }}>
                         <Group p={'md'} justify='space-between' align='center' className='w-100'>
                             <Title order={2} fw={500}>Select Token</Title>
-                            <ActionIcon variant='light' onClick={close}>
-                                <IconX />
-                            </ActionIcon>
+                            <Group>
+                                <Box py={'6px'} px={'10px'} style={{
+                                    background: themeObject.tokenHoverColor,
+                                    borderRadius: '10px'
+                                }}>
+                                    <Text size='xs' c={themeObject.textColor}>
+                                        {network === 'SN_GOERLI' ? 'Testnet' : null}
+                                        {network === 'SN_MAIN' ? 'Mainnet' : null}
+                                    </Text>
+                                </Box>
+                                <ActionIcon variant='transparent' onClick={close}>
+                                    <IconX color={themeObject.textColor} />
+                                </ActionIcon>
+                            </Group>
                         </Group>
                         <Box px="md" h={`${HEADER_HEIGHT}px`}>
                             <Stack h={`${HEADER_HEIGHT}px`} gap={6}>
@@ -166,14 +168,14 @@ const SelectTokenModal = ({ children, selectedToken, callBackFunc, themeObject }
                                             accentColor: 'red',
                                             '--_input-color': themeObject.searchTextColor
                                         },
-                                    }} rightSectionPointerEvents='all' rightSection={<ActionIcon onClick={() => setSearchedToken('')} variant='light'> <IconX color={themeObject.searchTextColor} /> </ActionIcon>} />
+                                    }} rightSectionPointerEvents='all'
+                                />
                                 <Group justify='space-between' align='center'>
                                     <Title order={5} mb="xs">Common tokens</Title>
-                                    <Button variant='light' onClick={reloadTokensFromContract} size='xs' radius={'md'} leftSection={<IconReload size={'16px'} />}>Refresh</Button>
                                 </Group>
                                 <Box style={{ overflow: 'hidden', maxWidth: '100%' }}>
                                     {
-                                        commonTokens?.length === 0 ? <Text fw={500} ta={'center'} c={themeObject.textColor}>No listed common tokens.</Text> : null
+                                        commonTokens?.length === 0 ? <Text fw={500} ta={'center'} c={themeObject.textColor}>No common tokens.</Text> : null
                                     }
                                     <ScrollArea scrollbarSize={10} pb='10px' type="always">
                                         <Group display={'flex'} style={{ flexWrap: 'nowrap' }} p='6px' gap={10}>
@@ -202,7 +204,7 @@ const SelectTokenModal = ({ children, selectedToken, callBackFunc, themeObject }
                                     <Box h={300}>
                                         <Center h={300}>
                                             <Text fw={500} ta={'center'} maw={'80%'} c={themeObject.textColor}>
-                                                No tokens have been listed yet! be the first to list <Anchor href='https://tokenkit-gamma.vercel.app/' target='_blank'>here.</Anchor>
+                                                Tokens Not Found <Anchor href='https://tokenkit-gamma.vercel.app/' target='_blank'>list here.</Anchor>
                                             </Text>
                                         </Center>
                                     </Box>
@@ -223,8 +225,8 @@ const SelectTokenModal = ({ children, selectedToken, callBackFunc, themeObject }
                         background: themeObject.headerFooterBackground
                     })}>
                         <Group style={{ height: '100%' }} align='center' justify='space-between'>
-                            <Anchor href='https://tokenkit-gamma.vercel.app' size='sm'>
-                                Add New
+                            <Anchor href='https://tokenkit-gamma.vercel.app/list-token' size='xs' fw={500} c={themeObject.textColor}>
+                                List New Token
                             </Anchor>
                             <Pagination variant='light' value={page} radius={'md'} onChange={setPage} total={Math.ceil(totalTokens / tokensPerPage)} size={'sm'} />
                         </Group>
@@ -251,28 +253,41 @@ const SelectToken = ({ token, select, selectedToken, bgColor, hoverColor }: ISel
 
     const [tokenPrice, setTokenPrice] = useState<null | any>(null)
 
+    const { hovered, ref } = useHover();
+
     const getTokenPrice = async () => {
-        setTokenPrice(null)
-        if (pragma_contract && token?.pair_id !== '-' && token?.pair_id !== '' && token?.pair_id !== 'N/A') {
-            const SPOTENTRY_ENUM = new CairoCustomEnum({
-                SpotEntry: token?.pair_id
-            })
-            setLoading(true)
-            try {
-                const res = await pragma_contract.get_data_median(SPOTENTRY_ENUM)
-                const price = getRealPrice(res)
-                setTokenPrice(price)
-                setLoading(false)
-            } catch (error) {
-                setLoading(false)
-            }
-        }
+        // setTokenPrice(null)
+        // if (pragma_contract && token?.pair_id !== '-' && token?.pair_id !== '' && token?.pair_id !== 'N/A') {
+        //     const SPOTENTRY_ENUM = new CairoCustomEnum({
+        //         SpotEntry: token?.pair_id
+        //     })
+        //     setLoading(true)
+        //     try {
+        //         const res = await pragma_contract.get_data_median(SPOTENTRY_ENUM)
+        //         const price = getRealPrice(res)
+        //         setTokenPrice(price)
+        //         setLoading(false)
+        //     } catch (error) {
+        //         setLoading(false)
+        //     }
+        // }
     }
 
     const selectToken = () => {
-        if (tokenPrice) {
-            select({ ...token, price: tokenPrice })
+        // This is to avoid selecting a token if it has no token price
+        // if (tokenPrice) {
+        // }
+        select({ ...token, price: tokenPrice })
+    }
+
+    const getImageUrl = () => {
+        if (token?.verified && token?.common) {
+            return "https://i.postimg.cc/Qx8RZ8qD/verified.png"
         }
+        else if (token?.verified && !token?.common) {
+            return "https://i.postimg.cc/d3BpZpwg/casual-life-3d-check-mark-side-view-pink.png"
+        }
+        return null
     }
 
     const has_changed = useMemo(() => ({
@@ -284,17 +299,28 @@ const SelectToken = ({ token, select, selectedToken, bgColor, hoverColor }: ISel
     }, [has_changed])
 
     return (
-        <Paper py={'xs'} bg={selectedToken?.address === token?.address ? hoverColor : bgColor} radius={'md'} px="md" style={{
-            backgroundColor: `${selectedToken?.address === token?.address ? hoverColor : bgColor} !important`,
+        <Paper ref={ref} py={'xs'} radius={'md'} px="md" style={{
+            background: hovered ? hoverColor : `${selectedToken?.address === token?.address ? hoverColor : 'transparent'}`,
             cursor: "pointer",
             pointerEvents: selectedToken?.address === token?.address ? "none" : "all",
         }} onClick={() => selectToken()}>
             <Group justify='space-between' align='center'>
                 <Group align='center'>
-                    <Avatar size="sm" src={token?.icon} variant='light' color='pink' />
+                    <Avatar size="sm" src={token?.icon} variant='light' bg={bgColor} tt={'capitalize'}>
+                        {limitChars(token?.symbol ?? '', 2, false)}
+                    </Avatar>
                     <Stack gap={-10}>
-                        <Text size="md"><b>{token?.symbol}</b></Text>
-                        <Text size="sm" fw={400}>{token?.name}</Text>
+                        <Group gap={3}>
+                            <Text size="sm">{token?.symbol}</Text>
+                            {
+                                getImageUrl() ?
+                                    <Tooltip label="This token is verified" position='bottom'>
+                                        <Image src={getImageUrl()} h={'14px'} w="14px" />
+                                    </Tooltip>
+                                    : null
+                            }
+                        </Group>
+                        <Text size="xs" fw={300}>{token?.name}</Text>
                     </Stack>
                 </Group>
                 {
@@ -302,7 +328,7 @@ const SelectToken = ({ token, select, selectedToken, bgColor, hoverColor }: ISel
                 }
                 {
                     tokenPrice ? (
-                        <Text size='sm' fw={500}>
+                        <Text size='xs' fw={300}>
                             ${formatNumberInternational(tokenPrice?.price)}
                         </Text>
                     ) : null
@@ -318,6 +344,8 @@ const SelectTokenBtn = ({ token, select, selectedToken, bgColor, hoverColor }: I
     const [tokenPrice, setTokenPrice] = useState<null | any>(null)
     const [_loading, setLoading] = useState(false)
 
+    const { hovered, ref } = useHover();
+
     const getTokenPrice = async () => {
         if (pragma_contract && token?.pair_id !== '-' && token?.pair_id !== '' && token?.pair_id !== 'N/A') {
             const SPOTENTRY_ENUM = new CairoCustomEnum({
@@ -336,26 +364,29 @@ const SelectTokenBtn = ({ token, select, selectedToken, bgColor, hoverColor }: I
     }
 
     const selectToken = () => {
-        if (tokenPrice) {
-            select({ ...token, price: tokenPrice })
-        }
+        // Avoid selecting a token if no token price
+        // if (tokenPrice) {
+        // }
+        select({ ...token, price: tokenPrice })
     }
 
     useEffect(() => {
         getTokenPrice()
     }, [pragma_contract, selectedToken])
+
     return (
-        <Paper bg={selectedToken?.address === token?.address ? hoverColor : bgColor} style={{
-            background: `${selectedToken?.address === token?.address ? hoverColor : bgColor} !important`,
-            border: "none",
+        <Paper ref={ref} py={'4px'} px={'12px'} style={{
+            background: hovered ? hoverColor : `${selectedToken?.address === token?.address ? hoverColor : "transparent"}`,
+            border: `2px solid ${hoverColor}`,
             borderRadius: "10px",
             pointerEvents: selectedToken?.address === token?.address ? "none" : "all",
-            padding: "4px 6px",
             cursor: "pointer",
             width: 'fit-content'
         }} onClick={() => selectToken()}>
             <Group gap={10} wrap='nowrap'>
-                <Avatar size="sm" src={token?.icon} />
+                <Avatar size="sm" src={token?.icon} bg={bgColor} tt={'capitalize'}>
+                    {limitChars(token?.symbol ?? '', 2, false)}
+                </Avatar>
                 <Text size="sm" fw={500}>{token?.symbol}</Text>
             </Group>
         </Paper>

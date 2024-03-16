@@ -1483,9 +1483,11 @@ var pragmaabi_default = [
 
 // src/configs/utils.ts
 var TOKEN_KIT_ABI = token_kit_abi_default;
-var TOKEN_KIT_CONTRACT_ADDRESS = "0x72fccd711f5a27e50b48d56514717847b45ab3620a517cd9cad61ded3b5895d";
+var TOKEN_KIT_CONTRACT_ADDRESS_TESTNET = "0x72fccd711f5a27e50b48d56514717847b45ab3620a517cd9cad61ded3b5895d";
+var TOKEN_KIT_CONTRACT_ADDRESS_MAINNET = "0x72fccd711f5a27e50b48d56514717847b45ab3620a517cd9cad61ded3b5895d";
 var PRAGMA_ABI = pragmaabi_default;
-var PRAGMA_CONTRACT_ADDRESS = "0x06df335982dddce41008e4c03f2546fa27276567b5274c7d0c1262f3c2b5d167";
+var PRAGMA_CONTRACT_ADDRESS_TESTNET = "0x06df335982dddce41008e4c03f2546fa27276567b5274c7d0c1262f3c2b5d167";
+var PRAGMA_CONTRACT_ADDRESS_MAINNET = "0x2a85bd616f912537c50a49a4076db02c00b29b2cdc8a197ce92ed1837fa875b";
 function formatNumberInternational(number) {
   const DECIMALS = 4;
   if (typeof Intl.NumberFormat === "function") {
@@ -1564,6 +1566,8 @@ import Dexie from "dexie";
 var TokenKitDBDexie = class extends Dexie {
   tokens;
   info;
+  mainnet_tokens;
+  mainnet_info;
   constructor() {
     super("TokenKitDB");
     this.version(1).stores({
@@ -1574,6 +1578,10 @@ var TokenKitDBDexie = class extends Dexie {
     });
     this.version(3).stores({
       info: "++id, name, tokens_count, tokens_version"
+    });
+    this.version(4).stores({
+      mainnet_tokens: "++id, name, symbol, decimals, address, verified, public, common, pair_id, [verified+common], [verified+public], [verified+common+public]",
+      mainnet_info: "++id, name, tokens_count, tokens_version"
     });
   }
 };
@@ -1588,10 +1596,7 @@ var initialData = {
   address: null,
   connection: null,
   handleConnetDisconnectWalletBtnClick: null,
-  openCloseModal: null,
-  modalOpen: false,
-  selectTokenFunc: null,
-  selectedToken: null,
+  network: null,
   reloadTokensFromContract: null,
   loadingTokens: false
 };
@@ -1601,22 +1606,20 @@ var useTokenKitContext = () => {
 };
 
 // src/providers/tokenkitprovider.tsx
-var TokenKitProvider = ({ children }) => {
+var TokenKitProvider = ({ children, nodeUrl, network }) => {
   const [contract, setContract] = useState();
   const [pragma_contract, setPragmaContract] = useState();
   const [connection, setConnection] = useState();
   const [account, setAccount] = useState();
   const [address, setAddress] = useState("");
-  const [modalOpen, setModalOpen] = useState(false);
-  const [selectedToken, setselectedToken] = useState();
   const [loading, setLoading] = useState(false);
   const connectWallet = async () => {
     try {
-      let provider = new RpcProvider({ nodeUrl: "https://starknet-goerli.infura.io/v3/958e1b411a40480eacb8c0f5d640a8ec" });
+      let provider = new RpcProvider({ nodeUrl });
       const connection2 = await connect({
         webWalletUrl: "https://web.argent.xyz",
         dappName: "Token Kit",
-        modalMode: "alwaysAsk",
+        modalMode: "neverAsk",
         provider
       });
       if (connection2 && connection2?.wallet) {
@@ -1634,7 +1637,7 @@ var TokenKitProvider = ({ children }) => {
     setAddress("");
   };
   const openConfirmDisconnectModal = () => modals.openConfirmModal({
-    title: "Please confirm your action",
+    title: "You about to disconnect your wallet!",
     centered: true,
     radius: "md",
     children: /* @__PURE__ */ React.createElement(Text, { size: "sm" }, "Are you sure you want to disconnect your account?"),
@@ -1647,14 +1650,25 @@ var TokenKitProvider = ({ children }) => {
   });
   const makeContractConnection = () => {
     try {
-      let provider = new RpcProvider({ nodeUrl: "https://starknet-goerli.infura.io/v3/958e1b411a40480eacb8c0f5d640a8ec" });
-      let pragma_contract2 = new Contract(PRAGMA_ABI, PRAGMA_CONTRACT_ADDRESS, provider);
-      setPragmaContract(pragma_contract2);
-      let contract2 = new Contract(TOKEN_KIT_ABI, TOKEN_KIT_CONTRACT_ADDRESS, provider);
-      if (account) {
-        contract2 = new Contract(TOKEN_KIT_ABI, TOKEN_KIT_CONTRACT_ADDRESS, account);
+      if (network === "SN_GOERLI") {
+        let provider = new RpcProvider({ nodeUrl });
+        let pragma_contract2 = new Contract(PRAGMA_ABI, PRAGMA_CONTRACT_ADDRESS_TESTNET, provider);
+        setPragmaContract(pragma_contract2);
+        let contract2 = new Contract(TOKEN_KIT_ABI, TOKEN_KIT_CONTRACT_ADDRESS_TESTNET, provider);
+        if (account) {
+          contract2 = new Contract(TOKEN_KIT_ABI, TOKEN_KIT_CONTRACT_ADDRESS_TESTNET, account);
+        }
+        setContract(contract2);
+      } else {
+        let provider = new RpcProvider({ nodeUrl });
+        let pragma_contract2 = new Contract(PRAGMA_ABI, PRAGMA_CONTRACT_ADDRESS_MAINNET, provider);
+        setPragmaContract(pragma_contract2);
+        let contract2 = new Contract(TOKEN_KIT_ABI, TOKEN_KIT_CONTRACT_ADDRESS_MAINNET, provider);
+        if (account) {
+          contract2 = new Contract(TOKEN_KIT_ABI, TOKEN_KIT_CONTRACT_ADDRESS_MAINNET, account);
+        }
+        setContract(contract2);
       }
-      setContract(contract2);
     } catch (error) {
     }
   };
@@ -1664,13 +1678,6 @@ var TokenKitProvider = ({ children }) => {
     } else {
       openConfirmDisconnectModal();
     }
-  };
-  const openCloseModal = (open) => {
-    setModalOpen(open);
-  };
-  const selectTokenFunc = (token, func) => {
-    setselectedToken(token);
-    func(token);
   };
   const loadTokens = async (page) => {
     try {
@@ -1710,29 +1717,21 @@ var TokenKitProvider = ({ children }) => {
           ...formated_token
         };
       });
-      db.tokens.clear();
-      db.tokens.bulkPut(combinedTokens).then((res) => {
-        console.log("Tokens saved the items successfully");
-      }).catch((error) => {
-        console.log("Error: ", error);
-      });
+      if (network === "SN_GOERLI") {
+        db.tokens.clear();
+        db.tokens.bulkPut(combinedTokens).then((res) => {
+        }).catch((error) => {
+        });
+      }
+      if (network === "SN_MAIN") {
+        db.mainnet_tokens.clear();
+        db.mainnet_tokens.bulkPut(combinedTokens).then((res) => {
+        }).catch((error) => {
+        });
+      }
       setLoading(false);
     } catch (error) {
       console.log("Error: ", error);
-    }
-  };
-  const getContractTokensInfo = async () => {
-    try {
-      if (contract) {
-        const totalTokens = await contract.get_tokens_count();
-        const noOfTokens = new BigNumber2(totalTokens).toNumber();
-        const dbTokensCount = await db.tokens.count();
-        if (dbTokensCount !== noOfTokens) {
-          actualLoadTokens(noOfTokens);
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching contract tokens information:", error);
     }
   };
   const checkAndReloadTokensForVersion = async () => {
@@ -1742,24 +1741,48 @@ var TokenKitProvider = ({ children }) => {
         const totalTokensReadable = new BigNumber2(totalTokens).toNumber();
         const tokens_version = await contract.get_tokens_version();
         const readable_tokens_version = new BigNumber2(tokens_version).toNumber();
-        const info = await db.info.get(1);
-        if (!info) {
-          db.info.put({
-            id: 1,
-            tokens_count: totalTokensReadable,
-            name: "main",
-            tokens_version: readable_tokens_version
-          });
-          actualLoadTokens(totalTokensReadable);
-        } else {
-          if (info?.tokens_version !== readable_tokens_version) {
-            actualLoadTokens(totalTokensReadable);
+        if (network === "SN_GOERLI") {
+          const info = await db.info.get(1);
+          if (!info) {
             db.info.put({
               id: 1,
               tokens_count: totalTokensReadable,
               name: "main",
               tokens_version: readable_tokens_version
             });
+            actualLoadTokens(totalTokensReadable);
+          } else {
+            if (info?.tokens_version !== readable_tokens_version) {
+              actualLoadTokens(totalTokensReadable);
+              db.info.put({
+                id: 1,
+                tokens_count: totalTokensReadable,
+                name: "main",
+                tokens_version: readable_tokens_version
+              });
+            }
+          }
+        }
+        if (network === "SN_MAIN") {
+          const mainnet_info = await db.mainnet_info.get(1);
+          if (!mainnet_info) {
+            db.mainnet_info.put({
+              id: 1,
+              tokens_count: totalTokensReadable,
+              name: "main",
+              tokens_version: readable_tokens_version
+            });
+            actualLoadTokens(totalTokensReadable);
+          } else {
+            if (mainnet_info?.tokens_version !== readable_tokens_version) {
+              actualLoadTokens(totalTokensReadable);
+              db.mainnet_info.put({
+                id: 1,
+                tokens_count: totalTokensReadable,
+                name: "main",
+                tokens_version: readable_tokens_version
+              });
+            }
           }
         }
       }
@@ -1773,22 +1796,21 @@ var TokenKitProvider = ({ children }) => {
     account,
     address,
     connection,
+    network,
     handleConnetDisconnectWalletBtnClick,
-    modalOpen,
-    openCloseModal,
-    selectTokenFunc,
-    selectedToken,
     reloadTokensFromContract: checkAndReloadTokensForVersion,
     loadingTokens: loading
-  }), [account, contract, address, pragma_contract, modalOpen]);
+  }), [account, contract, address, pragma_contract]);
   useEffect(() => {
     makeContractConnection();
     checkAndReloadTokensForVersion();
   }, [account]);
   useEffect(() => {
-    getContractTokensInfo();
     checkAndReloadTokensForVersion();
   }, [contract]);
+  useEffect(() => {
+    connectWallet();
+  }, []);
   return /* @__PURE__ */ React.createElement(TokenKitContext.Provider, { value: contextValue }, children);
 };
 var tokenkitprovider_default = TokenKitProvider;
@@ -1799,27 +1821,43 @@ import "@mantine/notifications/styles.css";
 import "@mantine/core/styles.layer.css";
 import "mantine-datatable/styles.layer.css";
 var TokenKitWrapper = (props) => {
-  const { children, usingMantine, theme, primaryColor } = props;
+  const { children, usingMantine, theme, primaryColor, network, nodeUrl } = props;
   if (usingMantine) {
-    return /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement(tokenkitprovider_default, null, children));
+    return /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement("div", { className: "tokenkit" }, /* @__PURE__ */ React2.createElement(
+      MantineProvider,
+      {
+        forceColorScheme: theme,
+        theme: {
+          primaryColor
+        }
+      },
+      /* @__PURE__ */ React2.createElement(tokenkitprovider_default, { nodeUrl, network }, children)
+    )));
   }
-  return /* @__PURE__ */ React2.createElement(MantineProvider, { forceColorScheme: theme, theme: {
-    primaryColor
-  }, withCssVariables: true, cssVariablesSelector: ".tokenkit", classNamesPrefix: "tokenkit" }, /* @__PURE__ */ React2.createElement("div", { className: "tokenkit" }, /* @__PURE__ */ React2.createElement(ModalsProvider, null, /* @__PURE__ */ React2.createElement(Notifications, null), /* @__PURE__ */ React2.createElement(tokenkitprovider_default, null, children))));
+  return /* @__PURE__ */ React2.createElement("div", { className: "tokenkit" }, /* @__PURE__ */ React2.createElement(
+    MantineProvider,
+    {
+      forceColorScheme: theme,
+      theme: {
+        primaryColor
+      }
+    },
+    /* @__PURE__ */ React2.createElement(ModalsProvider, null, /* @__PURE__ */ React2.createElement(Notifications, null), /* @__PURE__ */ React2.createElement(tokenkitprovider_default, { nodeUrl, network }, children))
+  ));
 };
 var wrapper_default = TokenKitWrapper;
 
 // src/components/Kit.tsx
 import { useEffect as useEffect2, useMemo as useMemo2, useState as useState2 } from "react";
-import { Modal, Box, Group, Title, ActionIcon, Paper, Avatar, Stack, Text as Text2, ScrollArea, Pagination, Center, Anchor, Button, Skeleton, Input } from "@mantine/core";
+import { Modal, Box, Group, Title, ActionIcon, Paper, Avatar, Stack, Text as Text2, ScrollArea, Pagination, Center, Anchor, Skeleton, Input, Image, Tooltip } from "@mantine/core";
 import React3 from "react";
 import { CairoCustomEnum } from "starknet";
-import { IconReload, IconX } from "@tabler/icons-react";
-import { useDebouncedState, useDisclosure } from "@mantine/hooks";
+import { IconX } from "@tabler/icons-react";
+import { useDebouncedState, useDisclosure, useHover } from "@mantine/hooks";
 import { modals as modals2 } from "@mantine/modals";
 import { useLiveQuery } from "dexie-react-hooks";
 var SelectTokenModal = ({ children, selectedToken, callBackFunc, themeObject }) => {
-  const { reloadTokensFromContract, loadingTokens } = useTokenKitContext();
+  const { loadingTokens, network } = useTokenKitContext();
   const [opened, { open, close }] = useDisclosure(false);
   const [totalTokens, setTotalTokens] = useState2(0);
   const [tokens, setTokens] = useState2([]);
@@ -1833,7 +1871,7 @@ var SelectTokenModal = ({ children, selectedToken, callBackFunc, themeObject }) 
     close();
   };
   const loadCommonTokens = async () => {
-    const common_tks = await db.tokens.filter((t) => (t.common ?? false) && (t.verified ?? false) && (t.public ?? false)).toArray();
+    const common_tks = await db.tokens.filter((t) => (t.common ?? false) && (t.public ?? false)).toArray();
     setCommonTokens(common_tks);
   };
   const loadTokensFromDB = async () => {
@@ -1841,8 +1879,9 @@ var SelectTokenModal = ({ children, selectedToken, callBackFunc, themeObject }) 
     setTotalTokens(_totalTokens);
     const limit = tokensPerPage;
     const offset = (page - 1) * tokensPerPage;
-    const regex = new RegExp(`(${searchedToken})`, "gi");
-    const addressSearchTerm = removeTrailingZeros(searchedToken);
+    const trimmedSearchedToken = searchedToken.trim();
+    const regex = new RegExp(`(${trimmedSearchedToken})`, "gi");
+    const addressSearchTerm = removeTrailingZeros(trimmedSearchedToken);
     const addressRegex = new RegExp(`(${addressSearchTerm})`, "gi");
     const filteredTokens = await db.tokens.filter((token) => {
       const matched = token.symbol.match(regex) || token.name.match(regex) || removeTrailingZeros(token.address).match(addressRegex);
@@ -1904,7 +1943,10 @@ var SelectTokenModal = ({ children, selectedToken, callBackFunc, themeObject }) 
       background: themeObject.modalBackground
     } }, /* @__PURE__ */ React3.createElement(Box, { h: `${HEADER_HEIGHT}px`, style: {
       background: themeObject.headerFooterBackground
-    } }, /* @__PURE__ */ React3.createElement(Group, { p: "md", justify: "space-between", align: "center", className: "w-100" }, /* @__PURE__ */ React3.createElement(Title, { order: 2, fw: 500 }, "Select Token"), /* @__PURE__ */ React3.createElement(ActionIcon, { variant: "light", onClick: close }, /* @__PURE__ */ React3.createElement(IconX, null))), /* @__PURE__ */ React3.createElement(Box, { px: "md", h: `${HEADER_HEIGHT}px` }, /* @__PURE__ */ React3.createElement(Stack, { h: `${HEADER_HEIGHT}px`, gap: 6 }, /* @__PURE__ */ React3.createElement(
+    } }, /* @__PURE__ */ React3.createElement(Group, { p: "md", justify: "space-between", align: "center", className: "w-100" }, /* @__PURE__ */ React3.createElement(Title, { order: 2, fw: 500 }, "Select Token"), /* @__PURE__ */ React3.createElement(Group, null, /* @__PURE__ */ React3.createElement(Box, { py: "6px", px: "10px", style: {
+      background: themeObject.tokenHoverColor,
+      borderRadius: "10px"
+    } }, /* @__PURE__ */ React3.createElement(Text2, { size: "xs", c: themeObject.textColor }, network === "SN_GOERLI" ? "Testnet" : null, network === "SN_MAIN" ? "Mainnet" : null)), /* @__PURE__ */ React3.createElement(ActionIcon, { variant: "transparent", onClick: close }, /* @__PURE__ */ React3.createElement(IconX, { color: themeObject.textColor })))), /* @__PURE__ */ React3.createElement(Box, { px: "md", h: `${HEADER_HEIGHT}px` }, /* @__PURE__ */ React3.createElement(Stack, { h: `${HEADER_HEIGHT}px`, gap: 6 }, /* @__PURE__ */ React3.createElement(
       Input,
       {
         type: "search",
@@ -1923,10 +1965,9 @@ var SelectTokenModal = ({ children, selectedToken, callBackFunc, themeObject }) 
             "--_input-color": themeObject.searchTextColor
           }
         },
-        rightSectionPointerEvents: "all",
-        rightSection: /* @__PURE__ */ React3.createElement(ActionIcon, { onClick: () => setSearchedToken(""), variant: "light" }, " ", /* @__PURE__ */ React3.createElement(IconX, { color: themeObject.searchTextColor }), " ")
+        rightSectionPointerEvents: "all"
       }
-    ), /* @__PURE__ */ React3.createElement(Group, { justify: "space-between", align: "center" }, /* @__PURE__ */ React3.createElement(Title, { order: 5, mb: "xs" }, "Common tokens"), /* @__PURE__ */ React3.createElement(Button, { variant: "light", onClick: reloadTokensFromContract, size: "xs", radius: "md", leftSection: /* @__PURE__ */ React3.createElement(IconReload, { size: "16px" }) }, "Refresh")), /* @__PURE__ */ React3.createElement(Box, { style: { overflow: "hidden", maxWidth: "100%" } }, commonTokens?.length === 0 ? /* @__PURE__ */ React3.createElement(Text2, { fw: 500, ta: "center", c: themeObject.textColor }, "No listed common tokens.") : null, /* @__PURE__ */ React3.createElement(ScrollArea, { scrollbarSize: 10, pb: "10px", type: "always" }, /* @__PURE__ */ React3.createElement(Group, { display: "flex", style: { flexWrap: "nowrap" }, p: "6px", gap: 10 }, commonTokens?.map((item, i) => /* @__PURE__ */ React3.createElement(Box, { key: `token_s_${i}`, w: "fit-content" }, /* @__PURE__ */ React3.createElement(
+    ), /* @__PURE__ */ React3.createElement(Group, { justify: "space-between", align: "center" }, /* @__PURE__ */ React3.createElement(Title, { order: 5, mb: "xs" }, "Common tokens")), /* @__PURE__ */ React3.createElement(Box, { style: { overflow: "hidden", maxWidth: "100%" } }, commonTokens?.length === 0 ? /* @__PURE__ */ React3.createElement(Text2, { fw: 500, ta: "center", c: themeObject.textColor }, "No common tokens.") : null, /* @__PURE__ */ React3.createElement(ScrollArea, { scrollbarSize: 10, pb: "10px", type: "always" }, /* @__PURE__ */ React3.createElement(Group, { display: "flex", style: { flexWrap: "nowrap" }, p: "6px", gap: 10 }, commonTokens?.map((item, i) => /* @__PURE__ */ React3.createElement(Box, { key: `token_s_${i}`, w: "fit-content" }, /* @__PURE__ */ React3.createElement(
       SelectTokenBtn,
       {
         token: item,
@@ -1938,7 +1979,7 @@ var SelectTokenModal = ({ children, selectedToken, callBackFunc, themeObject }) 
     ))))))))), /* @__PURE__ */ React3.createElement(Box, { style: {
       height: `calc(100% - ${HEADER_HEIGHT}px - 60px)`,
       background: themeObject.modalBackground
-    } }, /* @__PURE__ */ React3.createElement(ScrollArea, { className: "h-100" }, tokens?.length === 0 ? /* @__PURE__ */ React3.createElement(Box, { h: 300 }, /* @__PURE__ */ React3.createElement(Center, { h: 300 }, /* @__PURE__ */ React3.createElement(Text2, { fw: 500, ta: "center", maw: "80%", c: themeObject.textColor }, "No tokens have been listed yet! be the first to list ", /* @__PURE__ */ React3.createElement(Anchor, { href: "https://tokenkit-gamma.vercel.app/", target: "_blank" }, "here.")))) : null, /* @__PURE__ */ React3.createElement(Stack, { p: "xs", gap: 0 }, sortTokens()?.map((item, i) => /* @__PURE__ */ React3.createElement(
+    } }, /* @__PURE__ */ React3.createElement(ScrollArea, { className: "h-100" }, tokens?.length === 0 ? /* @__PURE__ */ React3.createElement(Box, { h: 300 }, /* @__PURE__ */ React3.createElement(Center, { h: 300 }, /* @__PURE__ */ React3.createElement(Text2, { fw: 500, ta: "center", maw: "80%", c: themeObject.textColor }, "Tokens Not Found ", /* @__PURE__ */ React3.createElement(Anchor, { href: "https://tokenkit-gamma.vercel.app/", target: "_blank" }, "list here.")))) : null, /* @__PURE__ */ React3.createElement(Stack, { p: "xs", gap: 0 }, sortTokens()?.map((item, i) => /* @__PURE__ */ React3.createElement(
       SelectToken,
       {
         key: `dfd_${i}`,
@@ -1951,34 +1992,26 @@ var SelectTokenModal = ({ children, selectedToken, callBackFunc, themeObject }) 
     ))))), /* @__PURE__ */ React3.createElement(Box, { px: "md", style: (theme) => ({
       height: `60px`,
       background: themeObject.headerFooterBackground
-    }) }, /* @__PURE__ */ React3.createElement(Group, { style: { height: "100%" }, align: "center", justify: "space-between" }, /* @__PURE__ */ React3.createElement(Anchor, { href: "https://tokenkit-gamma.vercel.app", size: "sm" }, "Add New"), /* @__PURE__ */ React3.createElement(Pagination, { variant: "light", value: page, radius: "md", onChange: setPage, total: Math.ceil(totalTokens / tokensPerPage), size: "sm" }))))
+    }) }, /* @__PURE__ */ React3.createElement(Group, { style: { height: "100%" }, align: "center", justify: "space-between" }, /* @__PURE__ */ React3.createElement(Anchor, { href: "https://tokenkit-gamma.vercel.app/list-token", size: "xs", fw: 500, c: themeObject.textColor }, "List New Token"), /* @__PURE__ */ React3.createElement(Pagination, { variant: "light", value: page, radius: "md", onChange: setPage, total: Math.ceil(totalTokens / tokensPerPage), size: "sm" }))))
   ));
 };
 var SelectToken = ({ token, select, selectedToken, bgColor, hoverColor }) => {
   const { pragma_contract } = useTokenKitContext();
   const [loading, setLoading] = useState2(false);
   const [tokenPrice, setTokenPrice] = useState2(null);
+  const { hovered, ref } = useHover();
   const getTokenPrice = async () => {
-    setTokenPrice(null);
-    if (pragma_contract && token?.pair_id !== "-" && token?.pair_id !== "" && token?.pair_id !== "N/A") {
-      const SPOTENTRY_ENUM = new CairoCustomEnum({
-        SpotEntry: token?.pair_id
-      });
-      setLoading(true);
-      try {
-        const res = await pragma_contract.get_data_median(SPOTENTRY_ENUM);
-        const price = getRealPrice(res);
-        setTokenPrice(price);
-        setLoading(false);
-      } catch (error) {
-        setLoading(false);
-      }
-    }
   };
   const selectToken = () => {
-    if (tokenPrice) {
-      select({ ...token, price: tokenPrice });
+    select({ ...token, price: tokenPrice });
+  };
+  const getImageUrl = () => {
+    if (token?.verified && token?.common) {
+      return "https://i.postimg.cc/Qx8RZ8qD/verified.png";
+    } else if (token?.verified && !token?.common) {
+      return "https://i.postimg.cc/d3BpZpwg/casual-life-3d-check-mark-side-view-pink.png";
     }
+    return null;
   };
   const has_changed = useMemo2(() => ({
     pragma_contract,
@@ -1988,16 +2021,17 @@ var SelectToken = ({ token, select, selectedToken, bgColor, hoverColor }) => {
   useEffect2(() => {
     getTokenPrice();
   }, [has_changed]);
-  return /* @__PURE__ */ React3.createElement(Paper, { py: "xs", bg: selectedToken?.address === token?.address ? hoverColor : bgColor, radius: "md", px: "md", style: {
-    backgroundColor: `${selectedToken?.address === token?.address ? hoverColor : bgColor} !important`,
+  return /* @__PURE__ */ React3.createElement(Paper, { ref, py: "xs", radius: "md", px: "md", style: {
+    background: hovered ? hoverColor : `${selectedToken?.address === token?.address ? hoverColor : "transparent"}`,
     cursor: "pointer",
     pointerEvents: selectedToken?.address === token?.address ? "none" : "all"
-  }, onClick: () => selectToken() }, /* @__PURE__ */ React3.createElement(Group, { justify: "space-between", align: "center" }, /* @__PURE__ */ React3.createElement(Group, { align: "center" }, /* @__PURE__ */ React3.createElement(Avatar, { size: "sm", src: token?.icon, variant: "light", color: "pink" }), /* @__PURE__ */ React3.createElement(Stack, { gap: -10 }, /* @__PURE__ */ React3.createElement(Text2, { size: "md" }, /* @__PURE__ */ React3.createElement("b", null, token?.symbol)), /* @__PURE__ */ React3.createElement(Text2, { size: "sm", fw: 400 }, token?.name))), loading ? /* @__PURE__ */ React3.createElement(Skeleton, { height: 10, width: 40 }) : null, tokenPrice ? /* @__PURE__ */ React3.createElement(Text2, { size: "sm", fw: 500 }, "$", formatNumberInternational(tokenPrice?.price)) : null));
+  }, onClick: () => selectToken() }, /* @__PURE__ */ React3.createElement(Group, { justify: "space-between", align: "center" }, /* @__PURE__ */ React3.createElement(Group, { align: "center" }, /* @__PURE__ */ React3.createElement(Avatar, { size: "sm", src: token?.icon, variant: "light", bg: bgColor, tt: "capitalize" }, limitChars(token?.symbol ?? "", 2, false)), /* @__PURE__ */ React3.createElement(Stack, { gap: -10 }, /* @__PURE__ */ React3.createElement(Group, { gap: 3 }, /* @__PURE__ */ React3.createElement(Text2, { size: "sm" }, token?.symbol), getImageUrl() ? /* @__PURE__ */ React3.createElement(Tooltip, { label: "This token is verified", position: "bottom" }, /* @__PURE__ */ React3.createElement(Image, { src: getImageUrl(), h: "14px", w: "14px" })) : null), /* @__PURE__ */ React3.createElement(Text2, { size: "xs", fw: 300 }, token?.name))), loading ? /* @__PURE__ */ React3.createElement(Skeleton, { height: 10, width: 40 }) : null, tokenPrice ? /* @__PURE__ */ React3.createElement(Text2, { size: "xs", fw: 300 }, "$", formatNumberInternational(tokenPrice?.price)) : null));
 };
 var SelectTokenBtn = ({ token, select, selectedToken, bgColor, hoverColor }) => {
   const { pragma_contract } = useTokenKitContext();
   const [tokenPrice, setTokenPrice] = useState2(null);
   const [_loading, setLoading] = useState2(false);
+  const { hovered, ref } = useHover();
   const getTokenPrice = async () => {
     if (pragma_contract && token?.pair_id !== "-" && token?.pair_id !== "" && token?.pair_id !== "N/A") {
       const SPOTENTRY_ENUM = new CairoCustomEnum({
@@ -2015,45 +2049,42 @@ var SelectTokenBtn = ({ token, select, selectedToken, bgColor, hoverColor }) => 
     }
   };
   const selectToken = () => {
-    if (tokenPrice) {
-      select({ ...token, price: tokenPrice });
-    }
+    select({ ...token, price: tokenPrice });
   };
   useEffect2(() => {
     getTokenPrice();
   }, [pragma_contract, selectedToken]);
-  return /* @__PURE__ */ React3.createElement(Paper, { bg: selectedToken?.address === token?.address ? hoverColor : bgColor, style: {
-    background: `${selectedToken?.address === token?.address ? hoverColor : bgColor} !important`,
-    border: "none",
+  return /* @__PURE__ */ React3.createElement(Paper, { ref, py: "4px", px: "12px", style: {
+    background: hovered ? hoverColor : `${selectedToken?.address === token?.address ? hoverColor : "transparent"}`,
+    border: `2px solid ${hoverColor}`,
     borderRadius: "10px",
     pointerEvents: selectedToken?.address === token?.address ? "none" : "all",
-    padding: "4px 6px",
     cursor: "pointer",
     width: "fit-content"
-  }, onClick: () => selectToken() }, /* @__PURE__ */ React3.createElement(Group, { gap: 10, wrap: "nowrap" }, /* @__PURE__ */ React3.createElement(Avatar, { size: "sm", src: token?.icon }), /* @__PURE__ */ React3.createElement(Text2, { size: "sm", fw: 500 }, token?.symbol)));
+  }, onClick: () => selectToken() }, /* @__PURE__ */ React3.createElement(Group, { gap: 10, wrap: "nowrap" }, /* @__PURE__ */ React3.createElement(Avatar, { size: "sm", src: token?.icon, bg: bgColor, tt: "capitalize" }, limitChars(token?.symbol ?? "", 2, false)), /* @__PURE__ */ React3.createElement(Text2, { size: "sm", fw: 500 }, token?.symbol)));
 };
 var Kit_default = SelectTokenModal;
 
 // src/components/TokensTable.tsx
 import { useDisclosure as useDisclosure2 } from "@mantine/hooks";
 import React6, { useEffect as useEffect3, useState as useState4 } from "react";
-import { ActionIcon as ActionIcon3, Avatar as Avatar2, Box as Box2, Button as Button3, Drawer, Grid as Grid2, Group as Group2, Select, Stack as Stack3, Text as Text3, TextInput as TextInput3, em } from "@mantine/core";
+import { ActionIcon as ActionIcon3, Avatar as Avatar2, Box as Box2, Button as Button2, Drawer, Grid as Grid2, Group as Group2, Select, Stack as Stack3, Text as Text3, TextInput as TextInput2, em } from "@mantine/core";
 
 // src/components/CustomCopyButton.tsx
 import React4 from "react";
-import { ActionIcon as ActionIcon2, CopyButton, Tooltip } from "@mantine/core";
+import { ActionIcon as ActionIcon2, CopyButton, Tooltip as Tooltip2 } from "@mantine/core";
 import { IconCopy } from "@tabler/icons-react";
 var CustomCopyBtn = (props) => {
   const { color, copy_value } = props;
-  return /* @__PURE__ */ React4.createElement(CopyButton, { value: copy_value }, ({ copied, copy }) => /* @__PURE__ */ React4.createElement(Tooltip, { label: copied ? "Copied" : "Copy" }, /* @__PURE__ */ React4.createElement(ActionIcon2, { variant: "light", size: "sm", radius: "sm", color: copied ? `${color}.9` : color, onClick: copy }, /* @__PURE__ */ React4.createElement(IconCopy, null))));
+  return /* @__PURE__ */ React4.createElement(CopyButton, { value: copy_value }, ({ copied, copy }) => /* @__PURE__ */ React4.createElement(Tooltip2, { label: copied ? "Copied" : "Copy" }, /* @__PURE__ */ React4.createElement(ActionIcon2, { variant: "light", size: "sm", radius: "sm", color: copied ? `${color}.9` : color, onClick: copy }, /* @__PURE__ */ React4.createElement(IconCopy, null))));
 };
 var CustomCopyButton_default = CustomCopyBtn;
 
 // src/components/TokensTable.tsx
-import { IconCheck as IconCheck2, IconFilter, IconReload as IconReload2, IconWriting as IconWriting2, IconX as IconX2 } from "@tabler/icons-react";
+import { IconCheck as IconCheck2, IconFilter, IconReload, IconWriting as IconWriting2, IconX as IconX2 } from "@tabler/icons-react";
 
 // src/components/forms.tsx
-import { Stack as Stack2, Title as Title2, Grid, NumberInput, TextInput as TextInput2, Switch, Button as Button2, Loader } from "@mantine/core";
+import { Stack as Stack2, Title as Title2, Grid, NumberInput, TextInput, Switch, Button, Loader } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { showNotification } from "@mantine/notifications";
 import { IconCheck, IconAlertTriangle, IconWriting, IconUpload } from "@tabler/icons-react";
@@ -2101,7 +2132,7 @@ var UpdateTokenForm = (props) => {
       });
     }
   };
-  return /* @__PURE__ */ React5.createElement("form", { onSubmit: form.onSubmit((_values) => handleSubmit()) }, /* @__PURE__ */ React5.createElement(Stack2, null, /* @__PURE__ */ React5.createElement(Title2, { order: 3 }, "Update Token"), /* @__PURE__ */ React5.createElement(Grid, null, /* @__PURE__ */ React5.createElement(Grid.Col, { span: { md: 12 } }, /* @__PURE__ */ React5.createElement(NumberInput, { disabled: true, label: "Token Index", placeholder: "Token Index", radius: "md", ...form.getInputProps("token_index") })), /* @__PURE__ */ React5.createElement(Grid.Col, { span: { md: 12 } }, /* @__PURE__ */ React5.createElement(TextInput2, { label: "Pair ID", placeholder: "ETH/USD", radius: "md", ...form.getInputProps("pair_id") })), /* @__PURE__ */ React5.createElement(Grid.Col, { span: { md: 4 } }, /* @__PURE__ */ React5.createElement(Switch, { label: "Common", radius: "md", ...form.getInputProps("common", { type: "checkbox" }) })), /* @__PURE__ */ React5.createElement(Grid.Col, { span: { md: 4 } }, /* @__PURE__ */ React5.createElement(Switch, { label: "Public", radius: "md", ...form.getInputProps("public", { type: "checkbox" }) })), /* @__PURE__ */ React5.createElement(Grid.Col, { span: { md: 4 } }, /* @__PURE__ */ React5.createElement(Switch, { label: "Verified", radius: "md", ...form.getInputProps("verified", { type: "checkbox" }) })), /* @__PURE__ */ React5.createElement(Grid.Col, { span: { md: 12 } }, /* @__PURE__ */ React5.createElement(TextInput2, { label: "Icon Link", placeholder: "https://shortlink/xysx", radius: "md", ...form.getInputProps("icon_link"), maxLength: 29 })), /* @__PURE__ */ React5.createElement(Grid.Col, { span: { md: 12 } }, /* @__PURE__ */ React5.createElement(Button2, { radius: "md", type: "submit", leftSection: loading ? /* @__PURE__ */ React5.createElement(Loader, { size: "sm", color: "white" }) : /* @__PURE__ */ React5.createElement(IconWriting, { size: "18px" }), rightSection: loading ? /* @__PURE__ */ React5.createElement(Loader, { color: "white", size: "sm" }) : null }, "Update Token")))));
+  return /* @__PURE__ */ React5.createElement("form", { onSubmit: form.onSubmit((_values) => handleSubmit()) }, /* @__PURE__ */ React5.createElement(Stack2, null, /* @__PURE__ */ React5.createElement(Title2, { order: 3 }, "Update Token"), /* @__PURE__ */ React5.createElement(Grid, null, /* @__PURE__ */ React5.createElement(Grid.Col, { span: { md: 12 } }, /* @__PURE__ */ React5.createElement(NumberInput, { disabled: true, label: "Token Index", placeholder: "Token Index", radius: "md", ...form.getInputProps("token_index") })), /* @__PURE__ */ React5.createElement(Grid.Col, { span: { md: 12 } }, /* @__PURE__ */ React5.createElement(TextInput, { label: "Pair ID", placeholder: "ETH/USD", radius: "md", ...form.getInputProps("pair_id") })), /* @__PURE__ */ React5.createElement(Grid.Col, { span: { md: 4 } }, /* @__PURE__ */ React5.createElement(Switch, { label: "Common", radius: "md", ...form.getInputProps("common", { type: "checkbox" }) })), /* @__PURE__ */ React5.createElement(Grid.Col, { span: { md: 4 } }, /* @__PURE__ */ React5.createElement(Switch, { label: "Public", radius: "md", ...form.getInputProps("public", { type: "checkbox" }) })), /* @__PURE__ */ React5.createElement(Grid.Col, { span: { md: 4 } }, /* @__PURE__ */ React5.createElement(Switch, { label: "Verified", radius: "md", ...form.getInputProps("verified", { type: "checkbox" }) })), /* @__PURE__ */ React5.createElement(Grid.Col, { span: { md: 12 } }, /* @__PURE__ */ React5.createElement(TextInput, { label: "Icon Link", placeholder: "https://shortlink/xysx", radius: "md", ...form.getInputProps("icon_link"), maxLength: 29 })), /* @__PURE__ */ React5.createElement(Grid.Col, { span: { md: 12 } }, /* @__PURE__ */ React5.createElement(Button, { radius: "md", type: "submit", leftSection: loading ? /* @__PURE__ */ React5.createElement(Loader, { size: "sm", color: "white" }) : /* @__PURE__ */ React5.createElement(IconWriting, { size: "18px" }), rightSection: loading ? /* @__PURE__ */ React5.createElement(Loader, { color: "white", size: "sm" }) : null }, "Update Token")))));
 };
 var ListTokenForm = () => {
   const [loading, setLoading] = useState3(false);
@@ -2142,7 +2173,7 @@ var ListTokenForm = () => {
       });
     }
   };
-  return /* @__PURE__ */ React5.createElement("form", { onSubmit: form.onSubmit((_values) => handleSubmit()) }, /* @__PURE__ */ React5.createElement(Stack2, null, /* @__PURE__ */ React5.createElement(Title2, { order: 3 }, "List new Token"), /* @__PURE__ */ React5.createElement(Grid, null, /* @__PURE__ */ React5.createElement(Grid.Col, { span: { md: 12 } }, /* @__PURE__ */ React5.createElement(TextInput2, { label: "Token Address", placeholder: "Token Address", radius: "md", ...form.getInputProps("address") })), /* @__PURE__ */ React5.createElement(Grid.Col, { span: { md: 12 } }, /* @__PURE__ */ React5.createElement(TextInput2, { label: "Pair ID", placeholder: "ETH/USD", radius: "md", ...form.getInputProps("pair_id") })), /* @__PURE__ */ React5.createElement(Grid.Col, { span: { md: 12 } }, /* @__PURE__ */ React5.createElement(TextInput2, { label: "Icon Link", placeholder: "https://shortlink/xysx", ...form.getInputProps("icon_link"), maxLength: 29, radius: "md" })), /* @__PURE__ */ React5.createElement(Grid.Col, { span: { md: 12 } }, /* @__PURE__ */ React5.createElement(Button2, { radius: "md", type: "submit", leftSection: /* @__PURE__ */ React5.createElement(IconUpload, { size: "18px" }), rightSection: loading ? /* @__PURE__ */ React5.createElement(Loader, { color: "white", size: "sm" }) : null }, "List Token")))));
+  return /* @__PURE__ */ React5.createElement("form", { onSubmit: form.onSubmit((_values) => handleSubmit()) }, /* @__PURE__ */ React5.createElement(Stack2, null, /* @__PURE__ */ React5.createElement(Title2, { order: 3 }, "List new Token"), /* @__PURE__ */ React5.createElement(Grid, null, /* @__PURE__ */ React5.createElement(Grid.Col, { span: { md: 12 } }, /* @__PURE__ */ React5.createElement(TextInput, { label: "Token Address", placeholder: "Token Address", radius: "md", ...form.getInputProps("address") })), /* @__PURE__ */ React5.createElement(Grid.Col, { span: { md: 12 } }, /* @__PURE__ */ React5.createElement(TextInput, { label: "Pair ID", placeholder: "ETH/USD", radius: "md", ...form.getInputProps("pair_id") })), /* @__PURE__ */ React5.createElement(Grid.Col, { span: { md: 12 } }, /* @__PURE__ */ React5.createElement(TextInput, { label: "Icon Link", placeholder: "https://shortlink/xysx", ...form.getInputProps("icon_link"), maxLength: 29, radius: "md" })), /* @__PURE__ */ React5.createElement(Grid.Col, { span: { md: 12 } }, /* @__PURE__ */ React5.createElement(Button, { radius: "md", type: "submit", leftSection: /* @__PURE__ */ React5.createElement(IconUpload, { size: "18px" }), rightSection: loading ? /* @__PURE__ */ React5.createElement(Loader, { color: "white", size: "sm" }) : null }, "List Token")))));
 };
 var AddAdminForm = () => {
   const [loading, setLoading] = useState3(false);
@@ -2178,7 +2209,7 @@ var AddAdminForm = () => {
       });
     }
   };
-  return /* @__PURE__ */ React5.createElement("form", { onSubmit: form.onSubmit((_values) => handleSubmit()) }, /* @__PURE__ */ React5.createElement(Stack2, null, /* @__PURE__ */ React5.createElement(Title2, { order: 3 }, "Add New Admin"), /* @__PURE__ */ React5.createElement(Grid, null, /* @__PURE__ */ React5.createElement(Grid.Col, { span: { md: 12 } }, /* @__PURE__ */ React5.createElement(TextInput2, { label: "Admin Address", placeholder: "Admin Address", radius: "md", ...form.getInputProps("address") })), /* @__PURE__ */ React5.createElement(Grid.Col, { span: { md: 12 } }, /* @__PURE__ */ React5.createElement(Button2, { radius: "md", type: "submit", leftSection: /* @__PURE__ */ React5.createElement(IconUpload, { size: "18px" }), rightSection: loading ? /* @__PURE__ */ React5.createElement(Loader, { color: "white", size: "sm" }) : null }, "Add Admin")))));
+  return /* @__PURE__ */ React5.createElement("form", { onSubmit: form.onSubmit((_values) => handleSubmit()) }, /* @__PURE__ */ React5.createElement(Stack2, null, /* @__PURE__ */ React5.createElement(Title2, { order: 3 }, "Add New Admin"), /* @__PURE__ */ React5.createElement(Grid, null, /* @__PURE__ */ React5.createElement(Grid.Col, { span: { md: 12 } }, /* @__PURE__ */ React5.createElement(TextInput, { label: "Admin Address", placeholder: "Admin Address", radius: "md", ...form.getInputProps("address") })), /* @__PURE__ */ React5.createElement(Grid.Col, { span: { md: 12 } }, /* @__PURE__ */ React5.createElement(Button, { radius: "md", type: "submit", leftSection: /* @__PURE__ */ React5.createElement(IconUpload, { size: "18px" }), rightSection: loading ? /* @__PURE__ */ React5.createElement(Loader, { color: "white", size: "sm" }) : null }, "Add Admin")))));
 };
 var UpdateAdminForm = (props) => {
   const { data } = props;
@@ -2216,7 +2247,7 @@ var UpdateAdminForm = (props) => {
       });
     }
   };
-  return /* @__PURE__ */ React5.createElement("form", { onSubmit: form.onSubmit((_values) => handleSubmit()) }, /* @__PURE__ */ React5.createElement(Stack2, null, /* @__PURE__ */ React5.createElement(Title2, { order: 3 }, "Update Admin"), /* @__PURE__ */ React5.createElement(Grid, null, /* @__PURE__ */ React5.createElement(Grid.Col, { span: { md: 12 } }, /* @__PURE__ */ React5.createElement(TextInput2, { label: "Admin Address", disabled: true, placeholder: "Admin Address", radius: "md", ...form.getInputProps("address") })), /* @__PURE__ */ React5.createElement(Grid.Col, { span: { md: 4 } }, /* @__PURE__ */ React5.createElement(Switch, { label: "Has Admin Permissions", radius: "md", ...form.getInputProps("has_permission", { type: "checkbox" }) })), /* @__PURE__ */ React5.createElement(Grid.Col, { span: { md: 12 } }, /* @__PURE__ */ React5.createElement(Button2, { radius: "md", type: "submit", leftSection: /* @__PURE__ */ React5.createElement(IconUpload, { size: "18px" }), rightSection: loading ? /* @__PURE__ */ React5.createElement(Loader, { color: "white", size: "sm" }) : null }, "Add Admin")))));
+  return /* @__PURE__ */ React5.createElement("form", { onSubmit: form.onSubmit((_values) => handleSubmit()) }, /* @__PURE__ */ React5.createElement(Stack2, null, /* @__PURE__ */ React5.createElement(Title2, { order: 3 }, "Update Admin"), /* @__PURE__ */ React5.createElement(Grid, null, /* @__PURE__ */ React5.createElement(Grid.Col, { span: { md: 12 } }, /* @__PURE__ */ React5.createElement(TextInput, { label: "Admin Address", disabled: true, placeholder: "Admin Address", radius: "md", ...form.getInputProps("address") })), /* @__PURE__ */ React5.createElement(Grid.Col, { span: { md: 4 } }, /* @__PURE__ */ React5.createElement(Switch, { label: "Has Admin Permissions", radius: "md", ...form.getInputProps("has_permission", { type: "checkbox" }) })), /* @__PURE__ */ React5.createElement(Grid.Col, { span: { md: 12 } }, /* @__PURE__ */ React5.createElement(Button, { radius: "md", type: "submit", leftSection: /* @__PURE__ */ React5.createElement(IconUpload, { size: "18px" }), rightSection: loading ? /* @__PURE__ */ React5.createElement(Loader, { color: "white", size: "sm" }) : null }, "Add Admin")))));
 };
 
 // src/components/TokensTable.tsx
@@ -2302,7 +2333,7 @@ var TokensTable = (props) => {
   useEffect3(() => {
     loadTokensFromDB();
   }, [have_tokens_changed]);
-  return /* @__PURE__ */ React6.createElement(Stack3, null, /* @__PURE__ */ React6.createElement(Box2, null, /* @__PURE__ */ React6.createElement("form", { onSubmit: filterForm.onSubmit((_values) => loadTokensFromDB()) }, /* @__PURE__ */ React6.createElement(Grid2, null, /* @__PURE__ */ React6.createElement(Grid2.Col, { span: { md: 3 } }, /* @__PURE__ */ React6.createElement(TextInput3, { label: "Search Token", placeholder: "Search by name, symbol or address", radius: "md", ...filterForm.getInputProps("searchedToken") })), /* @__PURE__ */ React6.createElement(Grid2.Col, { span: { md: 2 } }, /* @__PURE__ */ React6.createElement(Select, { label: "Common", radius: "md", placeholder: "True/False", data: [
+  return /* @__PURE__ */ React6.createElement(Stack3, null, /* @__PURE__ */ React6.createElement(Box2, null, /* @__PURE__ */ React6.createElement("form", { onSubmit: filterForm.onSubmit((_values) => loadTokensFromDB()) }, /* @__PURE__ */ React6.createElement(Grid2, null, /* @__PURE__ */ React6.createElement(Grid2.Col, { span: { md: 3 } }, /* @__PURE__ */ React6.createElement(TextInput2, { label: "Search Token", placeholder: "Search by name, symbol or address", radius: "md", ...filterForm.getInputProps("searchedToken") })), /* @__PURE__ */ React6.createElement(Grid2.Col, { span: { md: 2 } }, /* @__PURE__ */ React6.createElement(Select, { label: "Common", radius: "md", placeholder: "True/False", data: [
     { value: "all", label: "All" },
     { value: "true", label: "True" },
     { value: "false", label: "False" }
@@ -2314,7 +2345,7 @@ var TokensTable = (props) => {
     { value: "all", label: "All" },
     { value: "true", label: "True" },
     { value: "false", label: "False" }
-  ], ...filterForm.getInputProps("public") })), /* @__PURE__ */ React6.createElement(Grid2.Col, { span: { md: 3 } }, /* @__PURE__ */ React6.createElement(Group2, { h: "100%", justify: "start", align: "end" }, /* @__PURE__ */ React6.createElement(Button3, { radius: "md", type: "submit", size: "xs", leftSection: /* @__PURE__ */ React6.createElement(IconFilter, { size: "16px" }) }, "Filter"), /* @__PURE__ */ React6.createElement(Button3, { color: "indigo", size: "xs", onClick: reloadTokens, radius: "md", leftSection: /* @__PURE__ */ React6.createElement(IconReload2, { size: "16px" }) }, "Refresh")))))), /* @__PURE__ */ React6.createElement(Drawer, { opened, onClose: close, title: `Updating ${token?.name}`, position: "right", size: "sm" }, /* @__PURE__ */ React6.createElement(UpdateTokenForm, { data: token })), /* @__PURE__ */ React6.createElement(
+  ], ...filterForm.getInputProps("public") })), /* @__PURE__ */ React6.createElement(Grid2.Col, { span: { md: 3 } }, /* @__PURE__ */ React6.createElement(Group2, { h: "100%", justify: "start", align: "end" }, /* @__PURE__ */ React6.createElement(Button2, { radius: "md", type: "submit", size: "xs", leftSection: /* @__PURE__ */ React6.createElement(IconFilter, { size: "16px" }) }, "Filter"), /* @__PURE__ */ React6.createElement(Button2, { color: "indigo", size: "xs", onClick: reloadTokens, radius: "md", leftSection: /* @__PURE__ */ React6.createElement(IconReload, { size: "16px" }) }, "Refresh")))))), /* @__PURE__ */ React6.createElement(Drawer, { opened, onClose: close, title: `Updating ${token?.name}`, position: "right", size: "sm" }, /* @__PURE__ */ React6.createElement(UpdateTokenForm, { data: token })), /* @__PURE__ */ React6.createElement(
     DataTable,
     {
       withTableBorder: true,

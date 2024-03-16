@@ -18,6 +18,18 @@ interface ITokenKitWrapper {
     usingMantine: boolean;
     theme: 'dark' | 'light';
     primaryColor: 'blue' | 'cyan' | 'dark' | 'grape' | 'gray' | 'green' | 'indigo' | 'lime' | 'orange' | 'pink' | 'red' | 'teal' | 'violet' | 'yellow';
+    network: 'SN_MAIN' | 'SN_GOERLI';
+    nodeUrl: string;
+}
+interface IModalThemeObject {
+    textColor: string;
+    modalBackground: string;
+    headerFooterBackground: string;
+    searchBorderColor: string;
+    searchBackgroundColor: string;
+    searchTextColor: string;
+    tokenBackgroundColor: string;
+    tokenHoverColor: string;
 }
 
 declare const TokenKitWrapper: (props: ITokenKitWrapper) => React.JSX.Element;
@@ -29,10 +41,7 @@ declare const useTokenKitContext: () => {
     address: any;
     connection: any;
     handleConnetDisconnectWalletBtnClick: any;
-    openCloseModal: any;
-    modalOpen: boolean;
-    selectTokenFunc: any;
-    selectedToken: any;
+    network: any;
     reloadTokensFromContract: any;
     loadingTokens: boolean;
 };
@@ -41,16 +50,7 @@ interface ISelectTokenModal {
     selectedToken: IToken | undefined;
     children: React.ReactNode;
     callBackFunc: (token: IToken) => void;
-    themeObject: {
-        textColor: string;
-        modalBackground: string;
-        headerFooterBackground: string;
-        searchBorderColor: string;
-        searchBackgroundColor: string;
-        searchTextColor: string;
-        tokenBackgroundColor: string;
-        tokenHoverColor: string;
-    };
+    themeObject: IModalThemeObject;
 }
 declare const SelectTokenModal: ({ children, selectedToken, callBackFunc, themeObject }: ISelectTokenModal) => React.JSX.Element;
 
@@ -71,4 +71,4 @@ declare function bigintToLongAddress(bigintstr: string): string;
 declare function convertToReadableTokens(tokens: any, decimals: number): string;
 declare function limitChars(str: string, count: number, show_dots: boolean): string;
 
-export { AddAdminForm, type IToken, ListTokenForm, SelectTokenModal, TokenKitWrapper, TokensTable, UpdateAdminForm, UpdateTokenForm, bigintToLongAddress, bigintToShortStr, convertToReadableTokens, limitChars, useTokenKitContext };
+export { AddAdminForm, type IModalThemeObject, type IToken, ListTokenForm, SelectTokenModal, TokenKitWrapper, TokensTable, UpdateAdminForm, UpdateTokenForm, bigintToLongAddress, bigintToShortStr, convertToReadableTokens, limitChars, useTokenKitContext };

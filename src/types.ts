@@ -19,7 +19,9 @@ export interface ITokenKitWrapper {
     children: ReactNode
     usingMantine: boolean
     theme: 'dark' | 'light'
-    primaryColor: 'blue' | 'cyan' | 'dark' | 'grape' | 'gray' | 'green' | 'indigo' | 'lime' | 'orange' | 'pink' | 'red' | 'teal' | 'violet' | 'yellow'
+    primaryColor: 'blue' | 'cyan' | 'dark' | 'grape' | 'gray' | 'green' | 'indigo' | 'lime' | 'orange' | 'pink' | 'red' | 'teal' | 'violet' | 'yellow',
+    network: 'SN_MAIN' | 'SN_GOERLI'
+    nodeUrl: string
 }
 
 export interface ILoadTokenKit {
@@ -33,4 +35,15 @@ export interface TokensDBInfo {
     name: string
     tokens_version: number
     tokens_count: number
+}
+
+export interface IModalThemeObject {
+    textColor: string
+    modalBackground: string
+    headerFooterBackground: string
+    searchBorderColor: string
+    searchBackgroundColor: string
+    searchTextColor: string
+    tokenBackgroundColor: string
+    tokenHoverColor: string
 }
